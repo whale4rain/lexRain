@@ -62,7 +62,7 @@ fn main() -> Result<()> {
                             CurrentScreen::Dashboard => match key.code {
                                 KeyCode::Char('q') => app.current_screen = CurrentScreen::Exiting,
                                 KeyCode::Char('r') => app.start_review()?,
-                                KeyCode::Char('d') => app.current_screen = CurrentScreen::Dictionary,
+                                KeyCode::Char('d') => app.enter_dictionary()?,
                                 _ => {}
                             },
                             CurrentScreen::Review => match app.review_state {
@@ -87,7 +87,20 @@ fn main() -> Result<()> {
                                 },
                             },
                             CurrentScreen::Dictionary => match key.code {
-                                KeyCode::Esc => app.current_screen = CurrentScreen::Dashboard,
+                                KeyCode::Esc | KeyCode::Char('q') => {
+                                    app.refresh_stats();
+                                    app.current_screen = CurrentScreen::Dashboard;
+                                }
+                                KeyCode::Up | KeyCode::Char('k') => app.dict_select_previous(),
+                                KeyCode::Down | KeyCode::Char('j') => app.dict_select_next(),
+                                KeyCode::Char(c) => {
+                                    app.dict_search_input.push(c);
+                                    app.dict_update_search()?;
+                                }
+                                KeyCode::Backspace => {
+                                    app.dict_search_input.pop();
+                                    app.dict_update_search()?;
+                                }
                                 _ => {}
                             },
                             _ => {}

@@ -141,7 +141,103 @@ impl Database {
         // Due today (approximate)
         let now = Utc::now().to_rfc3339();
         let due: i64 = self.conn.query_row("SELECT COUNT(*) FROM learning_log WHERE next_review <= ?1", params![now], |r| r.get(0))?;
-        
+
         Ok((total, mastered, due))
+    }
+
+    // Get all words with their learning status
+    pub fn get_all_words(&self) -> Result<Vec<(Word, Option<LearningLog>)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT w.id, w.spelling, w.phonetic, w.definition, w.tags,
+                    l.repetition, l.interval, l.e_factor, l.next_review, l.status
+             FROM words w
+             LEFT JOIN learning_log l ON w.id = l.word_id
+             ORDER BY w.spelling ASC"
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            let word = Word {
+                id: Some(row.get(0)?),
+                spelling: row.get(1)?,
+                phonetic: row.get(2)?,
+                definition: row.get(3)?,
+                tags: row.get(4)?,
+            };
+
+            let log = if let Ok(rep) = row.get::<_, i32>(5) {
+                let next_review_str: String = row.get(8)?;
+                let next_review = DateTime::parse_from_rfc3339(&next_review_str)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or(Utc::now());
+
+                Some(LearningLog {
+                    word_id: word.id.unwrap(),
+                    repetition: rep,
+                    interval: row.get(6)?,
+                    e_factor: row.get(7)?,
+                    next_review,
+                    status: LearningStatus::from(row.get::<_, i32>(9)?),
+                })
+            } else {
+                None
+            };
+
+            Ok((word, log))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    // Search words by spelling or definition
+    pub fn search_words(&self, query: &str) -> Result<Vec<(Word, Option<LearningLog>)>> {
+        let search_pattern = format!("%{}%", query);
+        let mut stmt = self.conn.prepare(
+            "SELECT w.id, w.spelling, w.phonetic, w.definition, w.tags,
+                    l.repetition, l.interval, l.e_factor, l.next_review, l.status
+             FROM words w
+             LEFT JOIN learning_log l ON w.id = l.word_id
+             WHERE w.spelling LIKE ?1 OR w.definition LIKE ?1
+             ORDER BY w.spelling ASC"
+        )?;
+
+        let rows = stmt.query_map(params![search_pattern], |row| {
+            let word = Word {
+                id: Some(row.get(0)?),
+                spelling: row.get(1)?,
+                phonetic: row.get(2)?,
+                definition: row.get(3)?,
+                tags: row.get(4)?,
+            };
+
+            let log = if let Ok(rep) = row.get::<_, i32>(5) {
+                let next_review_str: String = row.get(8)?;
+                let next_review = DateTime::parse_from_rfc3339(&next_review_str)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .unwrap_or(Utc::now());
+
+                Some(LearningLog {
+                    word_id: word.id.unwrap(),
+                    repetition: rep,
+                    interval: row.get(6)?,
+                    e_factor: row.get(7)?,
+                    next_review,
+                    status: LearningStatus::from(row.get::<_, i32>(9)?),
+                })
+            } else {
+                None
+            };
+
+            Ok((word, log))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
     }
 }
