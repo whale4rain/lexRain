@@ -1,4 +1,6 @@
 mod app;
+mod app_v2;
+mod components;
 mod db;
 mod event;
 mod models;
@@ -19,6 +21,10 @@ struct Args {
     /// Import words from a JSON file
     #[arg(short, long)]
     import: Option<String>,
+
+    /// Use the new component-based architecture (experimental)
+    #[arg(long)]
+    v2: bool,
 }
 
 fn main() -> Result<()> {
@@ -47,8 +53,14 @@ fn main() -> Result<()> {
 
     // Initialize TUI
     let mut terminal = tui::init()?;
-    let mut app = App::new(db);
     let event_handler = event::EventHandler::new(Duration::from_millis(250));
+
+    // Choose architecture version
+    if args.v2 {
+        return run_v2(terminal, db, event_handler);
+    }
+
+    let mut app = App::new(db);
 
     // Main Loop
     while !matches!(app.current_screen, CurrentScreen::Exiting) {
@@ -62,7 +74,20 @@ fn main() -> Result<()> {
                             CurrentScreen::Dashboard => match key.code {
                                 KeyCode::Char('q') => app.current_screen = CurrentScreen::Exiting,
                                 KeyCode::Char('r') => app.start_review()?,
-                                KeyCode::Char('d') => app.enter_dictionary()?,
+                                KeyCode::Char('n') => app.start_learn_new()?,
+                                KeyCode::Char('d') => {
+                                    app.dismiss_completion_message();
+                                    app.enter_dictionary()?;
+                                }
+                                KeyCode::Char('h') => {
+                                    app.dismiss_completion_message();
+                                    app.enter_history()?;
+                                }
+                                KeyCode::Char('s') => {
+                                    app.dismiss_completion_message();
+                                    app.enter_statistics()?;
+                                }
+                                KeyCode::Esc => app.dismiss_completion_message(),
                                 _ => {}
                             },
                             CurrentScreen::Review => match app.review_state {
@@ -103,7 +128,51 @@ fn main() -> Result<()> {
                                 }
                                 _ => {}
                             },
+                            CurrentScreen::History => match key.code {
+                                KeyCode::Esc | KeyCode::Char('q') => {
+                                    app.refresh_stats();
+                                    app.current_screen = CurrentScreen::Dashboard;
+                                }
+                                _ => {}
+                            },
+                            CurrentScreen::Statistics => match key.code {
+                                KeyCode::Esc | KeyCode::Char('q') => {
+                                    app.refresh_stats();
+                                    app.current_screen = CurrentScreen::Dashboard;
+                                }
+                                _ => {}
+                            },
                             _ => {}
+                        }
+                    }
+                }
+                event::AppEvent::Tick => {
+                    // Handle periodic updates if needed
+                }
+            }
+        }
+    }
+
+    tui::restore()?;
+    Ok(())
+}
+
+fn run_v2(
+    mut terminal: ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
+    db: Database,
+    event_handler: event::EventHandler,
+) -> Result<()> {
+    let mut app = app_v2::AppV2::new(db)?;
+
+    loop {
+        terminal.draw(|frame| app.render(frame))?;
+
+        if let Some(event) = event_handler.next()? {
+            match event {
+                event::AppEvent::Key(key) => {
+                    if key.kind == KeyEventKind::Press {
+                        if app.handle_key(key)? {
+                            break;
                         }
                     }
                 }

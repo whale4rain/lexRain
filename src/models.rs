@@ -7,6 +7,7 @@ pub struct Word {
     pub spelling: String,
     pub phonetic: Option<String>,
     pub definition: String, // JSON string or simple text
+    pub chinese_definition: Option<String>, // Chinese translation
     pub tags: Option<String>,
 }
 

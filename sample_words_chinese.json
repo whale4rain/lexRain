@@ -1,0 +1,37 @@
+[
+  {
+    "spelling": "algorithm",
+    "phonetic": "ˈælɡərɪðəm",
+    "definition": "n. A step-by-step procedure for solving a problem or accomplishing a task, especially by a computer.",
+    "chinese_definition": "算法；一种解决问题或完成任务的分步骤程序，尤其是通过计算机。",
+    "tags": "programming,computer-science"
+  },
+  {
+    "spelling": "database",
+    "phonetic": "ˈdeɪtəbeɪs",
+    "definition": "n. A structured collection of data that is stored and accessed electronically.",
+    "chinese_definition": "数据库；以电子方式存储和访问的结构化数据集合。",
+    "tags": "programming,data"
+  },
+  {
+    "spelling": "function",
+    "phonetic": "ˈfʌŋkʃən",
+    "definition": "n. A block of organized, reusable code that performs a single action.",
+    "chinese_definition": "函数；执行单一操作的有组织的、可重用的代码块。",
+    "tags": "programming"
+  },
+  {
+    "spelling": "variable",
+    "phonetic": "ˈvɛriəbəl",
+    "definition": "n. A named storage location in memory that holds a value which can be changed during program execution.",
+    "chinese_definition": "变量；内存中的命名存储位置，保存可在程序执行期间更改的值。",
+    "tags": "programming"
+  },
+  {
+    "spelling": "iteration",
+    "phonetic": "ˌɪtəˈreɪʃən",
+    "definition": "n. The repetition of a process or set of instructions in a computer program.",
+    "chinese_definition": "迭代；计算机程序中过程或指令集的重复。",
+    "tags": "programming"
+  }
+]

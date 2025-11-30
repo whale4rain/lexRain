@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cargo build)"
+      "Bash(cargo build)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(cargo build:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:ratatui.rs)",
+      "Read(//tmp/binsider/src/tui/**)",
+      "Bash(cargo run:*)"
     ],
     "deny": [],
     "ask": []

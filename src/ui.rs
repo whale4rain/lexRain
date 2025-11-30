@@ -2,7 +2,8 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Tabs, Wrap},
+    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Tabs, Wrap, Chart, Dataset, Axis, GraphType},
+    symbols,
     Frame,
 };
 use crate::app::{App, CurrentScreen, ReviewState};
@@ -24,14 +25,16 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 }
 
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
-    let titles = vec!["Dashboard", "Review", "Dictionary", "Quit"];
+    let titles = vec!["Dashboard", "Review", "Dictionary", "History", "Statistics", "Quit"];
     let tabs = Tabs::new(titles)
         .block(Block::default().borders(Borders::ALL).title(" LexRain "))
         .select(match app.current_screen {
             CurrentScreen::Dashboard => 0,
             CurrentScreen::Review => 1,
             CurrentScreen::Dictionary => 2,
-            CurrentScreen::Exiting => 3,
+            CurrentScreen::History => 3,
+            CurrentScreen::Statistics => 4,
+            CurrentScreen::Exiting => 5,
         })
         .highlight_style(Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow));
     frame.render_widget(tabs, area);
@@ -42,6 +45,8 @@ fn render_content(app: &mut App, frame: &mut Frame, area: Rect) {
         CurrentScreen::Dashboard => render_dashboard(app, frame, area),
         CurrentScreen::Review => render_review(app, frame, area),
         CurrentScreen::Dictionary => render_dictionary(app, frame, area),
+        CurrentScreen::History => render_history(app, frame, area),
+        CurrentScreen::Statistics => render_statistics(app, frame, area),
         _ => {}
     }
 }
@@ -49,12 +54,17 @@ fn render_content(app: &mut App, frame: &mut Frame, area: Rect) {
 fn render_dashboard(app: &App, frame: &mut Frame, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Length(3), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(3),  // Statistics
+            Constraint::Length(3),  // Progress bar
+            Constraint::Length(3),  // Today's progress
+            Constraint::Min(1),     // Actions/Messages
+        ])
         .margin(1)
         .split(area);
 
     let (total, mastered, due) = app.stats;
-    
+
     let stats_text = format!("Total Words: {} | Mastered: {} | Due Today: {}", total, mastered, due);
     let p = Paragraph::new(stats_text)
         .block(Block::default().title(" Statistics ").borders(Borders::ALL));
@@ -66,10 +76,67 @@ fn render_dashboard(app: &App, frame: &mut Frame, area: Rect) {
         .gauge_style(Style::default().fg(Color::Green))
         .percent(progress as u16);
     frame.render_widget(gauge, chunks[1]);
-    
-    let instructions = Paragraph::new("Press 'r' to start Review\nPress 'd' for Dictionary\nPress 'q' to Quit")
-        .block(Block::default().title(" Actions ").borders(Borders::ALL));
-    frame.render_widget(instructions, chunks[2]);
+
+    // Today's completed reviews
+    let today_text = format!("Today's Completed Reviews: {} 🎯", app.today_completed);
+    let today_widget = Paragraph::new(today_text)
+        .block(Block::default().title(" Today's Progress ").borders(Borders::ALL))
+        .style(Style::default().fg(Color::Cyan));
+    frame.render_widget(today_widget, chunks[2]);
+
+    // Show completion message or instructions
+    if app.show_completion_message {
+        let completion_lines = vec![
+            Line::from(Span::styled(
+                "✓ Great job! All due reviews completed!",
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            )),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("Press "),
+                Span::styled("'n'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" to learn "),
+                Span::styled("new words", Style::default().fg(Color::Cyan)),
+                Span::raw(" | "),
+                Span::styled("'d'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" for Dictionary"),
+            ]),
+            Line::from(vec![
+                Span::styled("'h'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" for History | "),
+                Span::styled("'s'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" for Statistics | "),
+                Span::styled("'q'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" to Quit"),
+            ]),
+        ];
+        let completion_msg = Paragraph::new(completion_lines)
+            .block(Block::default().title(" Actions ").borders(Borders::ALL))
+            .alignment(ratatui::layout::Alignment::Center);
+        frame.render_widget(completion_msg, chunks[3]);
+    } else {
+        let instructions = Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled("'r'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" Review Due Words | "),
+                Span::styled("'n'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" Learn New Words"),
+            ]),
+            Line::from(vec![
+                Span::styled("'d'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" Dictionary | "),
+                Span::styled("'h'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" History | "),
+                Span::styled("'s'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" Statistics | "),
+                Span::styled("'q'", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::raw(" Quit"),
+            ]),
+        ])
+        .block(Block::default().title(" Actions ").borders(Borders::ALL))
+        .alignment(ratatui::layout::Alignment::Center);
+        frame.render_widget(instructions, chunks[3]);
+    }
 }
 
 fn render_review(app: &App, frame: &mut Frame, area: Rect) {
@@ -130,7 +197,18 @@ fn render_review(app: &App, frame: &mut Frame, area: Rect) {
                 frame.render_widget(hint, layout[3]);
             }
             ReviewState::Answer => {
-                let def_text = Paragraph::new(word.definition.as_str())
+                let mut def_lines = vec![
+                    Line::from(Span::styled("English:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+                    Line::from(word.definition.as_str()),
+                ];
+
+                if let Some(chinese_def) = &word.chinese_definition {
+                    def_lines.push(Line::from(""));
+                    def_lines.push(Line::from(Span::styled("中文:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))));
+                    def_lines.push(Line::from(chinese_def.as_str()));
+                }
+
+                let def_text = Paragraph::new(def_lines)
                     .wrap(Wrap { trim: true })
                     .alignment(ratatui::layout::Alignment::Center)
                     .block(Block::default().borders(Borders::TOP).title(" Definition "));
@@ -244,6 +322,212 @@ fn render_dictionary(app: &App, frame: &mut Frame, area: Rect) {
     }
 }
 
+fn render_history(app: &App, frame: &mut Frame, area: Rect) {
+    let items: Vec<ListItem> = app.history_list
+        .iter()
+        .map(|(word, reviewed_at, quality)| {
+            let quality_text = match quality {
+                1 => ("Forgot", Color::Red),
+                2 => ("Hard", Color::Yellow),
+                3 => ("Good", Color::Green),
+                4 => ("Easy", Color::Cyan),
+                _ => ("Unknown", Color::Gray),
+            };
+
+            let time_str = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(reviewed_at) {
+                dt.format("%Y-%m-%d %H:%M").to_string()
+            } else {
+                reviewed_at.clone()
+            };
+
+            let mut content_spans = vec![
+                Span::styled(
+                    format!("{:20}", word.spelling),
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                ),
+                Span::raw(" | "),
+                Span::styled(
+                    format!("{:10}", quality_text.0),
+                    Style::default().fg(quality_text.1)
+                ),
+                Span::raw(" | "),
+                Span::styled(
+                    time_str,
+                    Style::default().fg(Color::DarkGray)
+                ),
+            ];
+
+            if let Some(chinese_def) = &word.chinese_definition {
+                content_spans.push(Span::raw("\n  "));
+                content_spans.push(Span::styled(
+                    chinese_def.as_str(),
+                    Style::default().fg(Color::Gray)
+                ));
+            }
+
+            ListItem::new(Line::from(content_spans))
+        })
+        .collect();
+
+    let list_title = format!(" Review History (Last {} reviews) ", app.history_list.len());
+    let list = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title(list_title));
+
+    frame.render_widget(list, area);
+}
+
+fn render_statistics(app: &App, frame: &mut Frame, area: Rect) {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(50),  // Forgetting curve chart
+            Constraint::Percentage(50),  // Daily review chart
+        ])
+        .margin(1)
+        .split(area);
+
+    // Forgetting Curve Chart (Retention by Interval)
+    if !app.stats_interval_data.is_empty() {
+        let data: Vec<(f64, f64)> = app.stats_interval_data
+            .iter()
+            .map(|(interval, avg_quality, _)| (*interval as f64, *avg_quality))
+            .collect();
+
+        let max_interval = app.stats_interval_data
+            .iter()
+            .map(|(interval, _, _)| *interval)
+            .max()
+            .unwrap_or(30) as f64;
+
+        // Add padding to max_interval for better visualization
+        let x_max = (max_interval * 1.1).max(10.0);
+
+        let dataset = Dataset::default()
+            .name("Avg Quality")
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::new().fg(Color::Cyan))
+            .data(&data);
+
+        let x_labels = vec![
+            Span::raw("0"),
+            Span::raw(format!("{}", (x_max / 2.0) as i32)),
+            Span::raw(format!("{}", x_max as i32)),
+        ];
+
+        let chart = Chart::new(vec![dataset])
+            .block(Block::default().borders(Borders::ALL).title(" Forgetting Curve (Quality vs Interval Days) "))
+            .x_axis(
+                Axis::default()
+                    .title("Interval (days)")
+                    .style(Style::new().fg(Color::White))
+                    .bounds([0.0, x_max])
+                    .labels(x_labels)
+            )
+            .y_axis(
+                Axis::default()
+                    .title("Quality")
+                    .style(Style::new().fg(Color::White))
+                    .bounds([1.0, 4.0])
+                    .labels(vec![
+                        Span::raw("1.0"),
+                        Span::raw("2.5"),
+                        Span::raw("4.0"),
+                    ])
+            );
+
+        frame.render_widget(chart, layout[0]);
+    } else {
+        let msg = Paragraph::new("No review data available yet.\nComplete some reviews to see the forgetting curve!")
+            .alignment(ratatui::layout::Alignment::Center)
+            .block(Block::default().borders(Borders::ALL).title(" Forgetting Curve "));
+        frame.render_widget(msg, layout[0]);
+    }
+
+    // Daily Review Count Chart
+    if !app.stats_daily_data.is_empty() {
+        let data: Vec<(f64, f64)> = app.stats_daily_data
+            .iter()
+            .enumerate()
+            .map(|(idx, (_, count))| (idx as f64, *count as f64))
+            .collect();
+
+        let max_count = app.stats_daily_data
+            .iter()
+            .map(|(_, count)| *count)
+            .max()
+            .unwrap_or(10) as f64;
+
+        // Add padding to y-axis for better visualization
+        let y_max = (max_count * 1.2).max(5.0);
+
+        let dataset = Dataset::default()
+            .name("Reviews")
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::new().fg(Color::Green))
+            .data(&data);
+
+        let days_count = app.stats_daily_data.len() as f64;
+
+        // Format date labels more clearly
+        let x_labels = if days_count > 0.0 {
+            let first_date = app.stats_daily_data.first().map(|(d, _)| {
+                // Extract month-day from date string (YYYY-MM-DD)
+                if d.len() >= 10 {
+                    &d[5..10]  // MM-DD
+                } else {
+                    d.as_str()
+                }
+            }).unwrap_or("Start");
+
+            let last_date = app.stats_daily_data.last().map(|(d, _)| {
+                if d.len() >= 10 {
+                    &d[5..10]
+                } else {
+                    d.as_str()
+                }
+            }).unwrap_or("End");
+
+            vec![
+                Span::raw(first_date),
+                Span::raw("..."),
+                Span::raw(last_date),
+            ]
+        } else {
+            vec![Span::raw("0"), Span::raw("15"), Span::raw("30")]
+        };
+
+        let chart = Chart::new(vec![dataset])
+            .block(Block::default().borders(Borders::ALL).title(" Daily Review Activity (Last 30 Days) "))
+            .x_axis(
+                Axis::default()
+                    .title("Date")
+                    .style(Style::new().fg(Color::White))
+                    .bounds([0.0, days_count.max(1.0)])
+                    .labels(x_labels)
+            )
+            .y_axis(
+                Axis::default()
+                    .title("Count")
+                    .style(Style::new().fg(Color::White))
+                    .bounds([0.0, y_max])
+                    .labels(vec![
+                        Span::raw("0"),
+                        Span::raw(format!("{}", (y_max / 2.0) as i64)),
+                        Span::raw(format!("{}", y_max as i64)),
+                    ])
+            );
+
+        frame.render_widget(chart, layout[1]);
+    } else {
+        let msg = Paragraph::new("No daily review data available yet.\nComplete some reviews to see your activity!")
+            .alignment(ratatui::layout::Alignment::Center)
+            .block(Block::default().borders(Borders::ALL).title(" Daily Review Activity "));
+        frame.render_widget(msg, layout[1]);
+    }
+}
+
 fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
     let help_text = match app.current_screen {
         CurrentScreen::Review => match app.review_state {
@@ -251,6 +535,8 @@ fn render_footer(app: &App, frame: &mut Frame, area: Rect) {
             ReviewState::Answer => "1: Forgot | 2: Hard | 3: Good | 4: Easy",
         },
         CurrentScreen::Dictionary => "Type: Search | ↑/↓: Navigate | Esc: Back | q: Quit",
+        CurrentScreen::History => "Esc: Back | q: Quit",
+        CurrentScreen::Statistics => "Esc: Back | q: Quit",
         _ => "Tab: Switch Mode | q: Quit",
     };
 
