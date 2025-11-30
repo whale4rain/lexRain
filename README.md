@@ -1,4 +1,5 @@
 # LexRain - 基于 SuperMemo-2 算法的单词记忆应用
+⚠️developing, no suggest fomally use
 
 基于 Rust 和 TUI 的单词记忆应用，采用 SM-2 间隔重复算法 + ECDICT 340万词库。
 

@@ -5,6 +5,7 @@ mod db;
 mod event;
 mod models;
 mod sm2;
+mod theme;
 mod tui;
 mod ui;
 
