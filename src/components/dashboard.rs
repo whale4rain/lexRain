@@ -5,7 +5,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier},
     text::{Line, Span},
     widgets::{Gauge, Paragraph},
     widgets::calendar::{CalendarEventStore, Monthly},
@@ -240,17 +240,14 @@ impl Component for DashboardComponent {
         
         // Create event store with today highlighted
         let mut event_store = CalendarEventStore::today(
-            Style::default()
+            Theme::text_normal()
                 .add_modifier(Modifier::BOLD)
-                .bg(Color::Blue)
-                .fg(Color::White),
+                .bg(Theme::PRIMARY)
         );
 
         // Add checkin marks for completed days
         if let Ok(checkin_dates) = self.db.get_checkin_dates(today.year(), today.month() as u32) {
-            let checkin_style = Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD)
+            let checkin_style = Theme::text_success()
                 .bg(Color::Rgb(0, 50, 0));
             
             for date_str in checkin_dates {

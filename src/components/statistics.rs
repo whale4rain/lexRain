@@ -1,13 +1,13 @@
 use super::{Action, Component, Screen};
 use crate::db::Database;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
     symbols,
     text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
+    widgets::{Axis, Chart, Dataset, GraphType, Paragraph},
     Frame,
 };
 
@@ -67,7 +67,7 @@ impl Component for StatisticsComponent {
                 .name("Avg Quality")
                 .marker(symbols::Marker::Dot)
                 .graph_type(GraphType::Line)
-                .style(Style::new().fg(Color::Cyan))
+                .style(Theme::text_title())
                 .data(&data);
 
             let x_labels = vec![
@@ -78,21 +78,20 @@ impl Component for StatisticsComponent {
 
             let chart = Chart::new(vec![dataset])
                 .block(
-                    Block::default()
-                        .borders(Borders::ALL)
+                    Theme::block_default()
                         .title(" Forgetting Curve (Quality vs Interval Days) "),
                 )
                 .x_axis(
                     Axis::default()
                         .title("Interval (days)")
-                        .style(Style::new().fg(Color::White))
+                        .style(Theme::text_normal())
                         .bounds([0.0, x_max])
                         .labels(x_labels),
                 )
                 .y_axis(
                     Axis::default()
                         .title("Quality")
-                        .style(Style::new().fg(Color::White))
+                        .style(Theme::text_normal())
                         .bounds([1.0, 4.0])
                         .labels(vec![Span::raw("1.0"), Span::raw("2.5"), Span::raw("4.0")]),
                 );
@@ -104,8 +103,7 @@ impl Component for StatisticsComponent {
             )
             .alignment(ratatui::layout::Alignment::Center)
             .block(
-                Block::default()
-                    .borders(Borders::ALL)
+                Theme::block_default()
                     .title(" Forgetting Curve "),
             );
             frame.render_widget(msg, layout[0]);
@@ -133,7 +131,7 @@ impl Component for StatisticsComponent {
                 .name("Reviews")
                 .marker(symbols::Marker::Dot)
                 .graph_type(GraphType::Line)
-                .style(Style::new().fg(Color::Green))
+                .style(Theme::text_success())
                 .data(&data);
 
             let days_count = self.daily_data.len() as f64;
@@ -162,21 +160,20 @@ impl Component for StatisticsComponent {
 
             let chart = Chart::new(vec![dataset])
                 .block(
-                    Block::default()
-                        .borders(Borders::ALL)
+                    Theme::block_default()
                         .title(" Daily Review Activity (Last 30 Days) "),
                 )
                 .x_axis(
                     Axis::default()
                         .title("Date")
-                        .style(Style::new().fg(Color::White))
+                        .style(Theme::text_normal())
                         .bounds([0.0, days_count.max(1.0)])
                         .labels(x_labels),
                 )
                 .y_axis(
                     Axis::default()
                         .title("Count")
-                        .style(Style::new().fg(Color::White))
+                        .style(Theme::text_normal())
                         .bounds([0.0, y_max])
                         .labels(vec![
                             Span::raw("0"),
@@ -192,8 +189,7 @@ impl Component for StatisticsComponent {
             )
             .alignment(ratatui::layout::Alignment::Center)
             .block(
-                Block::default()
-                    .borders(Borders::ALL)
+                Theme::block_default()
                     .title(" Daily Review Activity "),
             );
             frame.render_widget(msg, layout[1]);

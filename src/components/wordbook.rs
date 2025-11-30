@@ -1,12 +1,13 @@
 use super::{Action, Component, Screen};
 use crate::db::Database;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame,
 };
 
@@ -113,12 +114,12 @@ impl Component for WordbookComponent {
                 let content = vec![
                     Span::styled(
                         format!("  {}", tag_display),
-                        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        Theme::text_title(),
                     ),
                     Span::raw("  "),
                     Span::styled(
                         format!("({} 词)", count),
-                        Style::default().fg(Color::DarkGray),
+                        Theme::text_secondary(),
                     ),
                 ];
 
@@ -134,12 +135,10 @@ impl Component for WordbookComponent {
         );
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(list_title))
+            .block(Theme::block_default().title(list_title))
             .highlight_style(
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_success()
+                    .add_modifier(Modifier::BOLD)
             )
             .highlight_symbol(">> ");
 
@@ -166,25 +165,25 @@ impl Component for WordbookComponent {
         // Help text
         let help_lines = vec![
             Line::from(vec![
-                Span::styled("Enter", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                Span::styled("Enter", Theme::text_success()),
                 Span::raw(" 开始复习  "),
-                Span::styled("s", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("s", Theme::text_warning()),
                 Span::raw(" 切换乱序/顺序  "),
-                Span::styled("↑/↓ j/k", Style::default().fg(Color::Cyan)),
+                Span::styled("↑/↓ j/k", Theme::text_title()),
                 Span::raw(" 选择"),
             ]),
             Line::from(vec![
-                Span::styled("g/G", Style::default().fg(Color::Cyan)),
+                Span::styled("g/G", Theme::text_title()),
                 Span::raw(" 首/尾  "),
-                Span::styled("PageUp/Down", Style::default().fg(Color::Cyan)),
+                Span::styled("PageUp/Down", Theme::text_title()),
                 Span::raw(" 翻页  "),
-                Span::styled("q", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                Span::styled("q", Theme::text_accent()),
                 Span::raw(" 返回"),
             ]),
         ];
 
         let help = Paragraph::new(help_lines)
-            .block(Block::default().borders(Borders::ALL).title(" 操作提示 "))
+            .block(Theme::block_default().title(" 操作提示 "))
             .alignment(ratatui::layout::Alignment::Center);
         frame.render_widget(help, layout[1]);
     }

@@ -1,3 +1,4 @@
+use crate::theme::Theme;
 use ratatui::{
     layout::Rect,
     style::{Color, Style},
@@ -18,7 +19,7 @@ impl ProgressBar {
             current,
             total,
             label: format!("{}/{}", current, total),
-            color: Color::Cyan,
+            color: Theme::PRIMARY,
         }
     }
 

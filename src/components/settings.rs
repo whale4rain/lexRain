@@ -1,12 +1,13 @@
 use super::{Action, Component, Screen};
 use crate::db::Database;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::Paragraph,
     Frame,
 };
 
@@ -112,24 +113,18 @@ impl Component for SettingsComponent {
 
         // Title
         let title = Paragraph::new("⚙️  Settings")
-            .style(
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .block(Block::default().borders(Borders::ALL));
+            .style(Theme::text_title())
+            .block(Theme::block_default());
         frame.render_widget(title, chunks[0]);
 
         // Daily goal setting
         let goal_lines = if self.editing {
             vec![
                 Line::from(vec![
-                    Span::styled("📊 ", Style::default().fg(Color::Yellow)),
+                    Span::styled("📊 ", Theme::text_warning()),
                     Span::styled(
                         "Daily Review Goal",
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_title(),
                     ),
                 ]),
                 Line::from(""),
@@ -137,29 +132,26 @@ impl Component for SettingsComponent {
                     Span::raw("Enter goal (1-1000): "),
                     Span::styled(
                         &self.input_buffer,
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                        Theme::text_warning()
+                            .add_modifier(Modifier::UNDERLINED),
                     ),
-                    Span::styled("_", Style::default().fg(Color::Yellow)),
+                    Span::styled("_", Theme::text_warning()),
                 ]),
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter", Style::default().fg(Color::Green)),
+                    Span::styled("Enter", Theme::text_success()),
                     Span::raw(" to save | "),
-                    Span::styled("Esc", Style::default().fg(Color::Red)),
+                    Span::styled("Esc", Theme::text_accent()),
                     Span::raw(" to cancel"),
                 ]),
             ]
         } else {
             vec![
                 Line::from(vec![
-                    Span::styled("📊 ", Style::default().fg(Color::Yellow)),
+                    Span::styled("📊 ", Theme::text_warning()),
                     Span::styled(
                         "Daily Review Goal",
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_title(),
                     ),
                 ]),
                 Line::from(""),
@@ -167,9 +159,7 @@ impl Component for SettingsComponent {
                     Span::raw("Current goal: "),
                     Span::styled(
                         format!("{} words/day", self.daily_goal),
-                        Style::default()
-                            .fg(Color::Cyan)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_title(),
                     ),
                 ]),
                 Line::from(""),
@@ -177,9 +167,7 @@ impl Component for SettingsComponent {
                     Span::raw("Press "),
                     Span::styled(
                         "'e'",
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_warning(),
                     ),
                     Span::raw(" to edit"),
                 ]),
@@ -187,24 +175,23 @@ impl Component for SettingsComponent {
         };
 
         let goal_widget = Paragraph::new(goal_lines)
-            .block(Block::default().borders(Borders::ALL).title(" Setting "))
-            .style(Style::default().fg(Color::White));
+            .block(Theme::block_default().title(" Setting "));
         frame.render_widget(goal_widget, chunks[1]);
 
         // Message
         if let Some(msg) = &self.message {
             let msg_style = if msg.starts_with("✓") {
-                Style::default().fg(Color::Green)
+                Theme::text_success()
             } else {
-                Style::default().fg(Color::Red)
+                Theme::text_accent()
             };
             let message_widget = Paragraph::new(msg.as_str())
-                .style(msg_style.add_modifier(Modifier::BOLD))
-                .block(Block::default().borders(Borders::ALL));
+                .style(msg_style)
+                .block(Theme::block_default());
             frame.render_widget(message_widget, chunks[2]);
         } else {
             let placeholder = Paragraph::new("")
-                .block(Block::default().borders(Borders::ALL));
+                .block(Theme::block_default());
             frame.render_widget(placeholder, chunks[2]);
         }
 
@@ -213,9 +200,7 @@ impl Component for SettingsComponent {
             Line::from(vec![
                 Span::styled(
                     "💡 Tips:",
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
+                    Theme::text_warning(),
                 ),
             ]),
             Line::from(""),
@@ -225,8 +210,8 @@ impl Component for SettingsComponent {
         ];
 
         let help_widget = Paragraph::new(help_lines)
-            .block(Block::default().borders(Borders::ALL).title(" Help "))
-            .style(Style::default().fg(Color::DarkGray));
+            .block(Theme::block_default().title(" Help "))
+            .style(Theme::text_secondary());
         frame.render_widget(help_widget, chunks[3]);
     }
 }
