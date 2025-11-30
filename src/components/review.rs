@@ -5,6 +5,34 @@ use crate::models::{LearningLog, Word};
 use crate::sm2;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::collections::HashMap;
+
+/// Parse exchange field into a readable format
+fn parse_exchange(exchange: &str) -> HashMap<&str, String> {
+    let mut result = HashMap::new();
+    for part in exchange.split('/') {
+        if let Some((key, value)) = part.split_once(':') {
+            result.insert(key, value.to_string());
+        }
+    }
+    result
+}
+
+/// Get exchange type description
+fn exchange_type_name(key: &str) -> &str {
+    match key {
+        "p" => "过去式",
+        "d" => "过去分词",
+        "i" => "现在分词",
+        "3" => "第三人称单数",
+        "r" => "比较级",
+        "t" => "最高级",
+        "s" => "复数",
+        "0" => "原型",
+        "1" => "原型变换",
+        _ => key,
+    }
+}
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
@@ -161,9 +189,8 @@ impl Component for ReviewComponent {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(3),      // Progress bar
-                    Constraint::Percentage(35), // Word
-                    Constraint::Percentage(15), // Phonetic
-                    Constraint::Percentage(50), // Definition
+                    Constraint::Length(5),      // Word + Phonetic + Metadata
+                    Constraint::Min(10),        // Definition (scrollable)
                 ])
                 .split(inner_area);
 
@@ -178,24 +205,93 @@ impl Component for ReviewComponent {
                 .with_color(Color::Cyan);
             progress_bar.render(frame, layout[0]);
 
-            // Word
-            let word_text = Paragraph::new(Span::styled(
-                &word.spelling,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
-            ))
-            .alignment(ratatui::layout::Alignment::Center)
-            .block(Block::default().borders(Borders::NONE));
-            frame.render_widget(word_text, layout[1]);
-
-            // Phonetic
+            // Word Header (Word + Phonetic + Metadata in one compact area)
+            let mut header_lines = vec![];
+            
+            // Line 1: Word + Phonetic
+            let mut word_line_spans = vec![
+                Span::styled(
+                    &word.spelling,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                ),
+            ];
             if let Some(phonetic) = &word.phonetic {
-                let phonetic_text = Paragraph::new(format!("[ {} ]", phonetic))
-                    .alignment(ratatui::layout::Alignment::Center)
-                    .style(Style::default().fg(Color::DarkGray));
-                frame.render_widget(phonetic_text, layout[2]);
+                word_line_spans.push(Span::raw("  "));
+                word_line_spans.push(Span::styled(
+                    format!("[ {} ]", phonetic),
+                    Style::default().fg(Color::DarkGray),
+                ));
             }
+            header_lines.push(Line::from(word_line_spans));
+            
+            // Line 2: POS + Collins + Oxford
+            let mut meta_spans = vec![];
+            if let Some(pos) = &word.pos {
+                if !pos.is_empty() {
+                    meta_spans.push(Span::styled(
+                        format!("词性: {}", pos),
+                        Style::default().fg(Color::Yellow),
+                    ));
+                }
+            }
+            if word.collins > 0 {
+                if !meta_spans.is_empty() {
+                    meta_spans.push(Span::raw("  |  "));
+                }
+                meta_spans.push(Span::styled(
+                    format!("柯林斯 {}", "★".repeat(word.collins as usize)),
+                    Style::default().fg(Color::Magenta),
+                ));
+            }
+            if word.oxford {
+                if !meta_spans.is_empty() {
+                    meta_spans.push(Span::raw("  |  "));
+                }
+                meta_spans.push(Span::styled(
+                    "牛津3000",
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ));
+            }
+            if !meta_spans.is_empty() {
+                header_lines.push(Line::from(meta_spans));
+            }
+            
+            // Line 3: Tags
+            if let Some(tag) = &word.tag {
+                if !tag.is_empty() {
+                    let tags: Vec<&str> = tag.split_whitespace().collect();
+                    let tag_display: Vec<String> = tags.iter().map(|t| {
+                        match *t {
+                            "zk" => "中考",
+                            "gk" => "高考",
+                            "cet4" => "CET-4",
+                            "cet6" => "CET-6",
+                            "ky" => "考研",
+                            "toefl" => "TOEFL",
+                            "ielts" => "IELTS",
+                            "gre" => "GRE",
+                            _ => t,
+                        }.to_string()
+                    }).collect();
+                    header_lines.push(Line::from(vec![
+                        Span::styled(
+                            "考试: ",
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(
+                            tag_display.join(" · "),
+                            Style::default().fg(Color::Cyan),
+                        ),
+                    ]));
+                }
+            }
+            
+            let header = Paragraph::new(header_lines)
+                .alignment(ratatui::layout::Alignment::Center)
+                .block(Block::default().borders(Borders::NONE));
+            frame.render_widget(header, layout[1]);
 
             // Definition
             match self.state {
@@ -203,28 +299,94 @@ impl Component for ReviewComponent {
                     let hint = Paragraph::new("Press <Space> to show definition")
                         .alignment(ratatui::layout::Alignment::Center)
                         .style(Style::default().fg(Color::Gray));
-                    frame.render_widget(hint, layout[3]);
+                    frame.render_widget(hint, layout[2]);
                 }
                 ReviewState::Answer => {
-                    let mut def_lines = vec![
-                        Line::from(Span::styled(
-                            "English:",
-                            Style::default()
-                                .fg(Color::Yellow)
-                                .add_modifier(Modifier::BOLD),
-                        )),
-                        Line::from(word.definition.as_str()),
-                    ];
+                    let mut def_lines = vec![];
+                    
+                    // Exchange (词形变化)
+                    if let Some(exchange) = &word.exchange {
+                        if !exchange.is_empty() {
+                            def_lines.push(Line::from(Span::styled(
+                                "━━━ 词形变化 ━━━",
+                                Style::default()
+                                    .fg(Color::Magenta)
+                                    .add_modifier(Modifier::BOLD),
+                            )));
+                            
+                            let exchange_map = parse_exchange(exchange);
+                            let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
+                            
+                            for key in &order {
+                                if let Some(value) = exchange_map.get(*key) {
+                                    def_lines.push(Line::from(vec![
+                                        Span::styled(
+                                            format!("  {}: ", exchange_type_name(key)),
+                                            Style::default().fg(Color::DarkGray),
+                                        ),
+                                        Span::styled(
+                                            value.clone(),
+                                            Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                        ),
+                                    ]));
+                                }
+                            }
+                            def_lines.push(Line::from(""));
+                        }
+                    }
+                    
+                    // English Definition
+                    def_lines.push(Line::from(Span::styled(
+                        "━━━ English Definition ━━━",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    )));
+                    
+                    // Split definition by line breaks for better formatting
+                    for line in word.definition.lines() {
+                        if !line.trim().is_empty() {
+                            def_lines.push(Line::from(format!("  {}", line)));
+                        }
+                    }
 
+                    // Chinese Translation
                     if let Some(translation) = &word.translation {
                         def_lines.push(Line::from(""));
                         def_lines.push(Line::from(Span::styled(
-                            "中文:",
+                            "━━━ 中文释义 ━━━",
                             Style::default()
                                 .fg(Color::Cyan)
                                 .add_modifier(Modifier::BOLD),
                         )));
-                        def_lines.push(Line::from(translation.as_str()));
+                        
+                        for line in translation.lines() {
+                            if !line.trim().is_empty() {
+                                def_lines.push(Line::from(format!("  {}", line)));
+                            }
+                        }
+                    }
+                    
+                    // Frequency info (if available)
+                    let mut freq_info = vec![];
+                    if let Some(bnc) = word.bnc {
+                        freq_info.push(format!("BNC: {}", bnc));
+                    }
+                    if let Some(frq) = word.frq {
+                        freq_info.push(format!("当代语料库: {}", frq));
+                    }
+                    if !freq_info.is_empty() {
+                        def_lines.push(Line::from(""));
+                        def_lines.push(Line::from(vec![
+                            Span::styled(
+                                "词频: ",
+                                Style::default().fg(Color::DarkGray),
+                            ),
+                            Span::styled(
+                                freq_info.join(" | "),
+                                Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                            ),
+                        ]));
                     }
 
                     // Calculate content height for scrollbar
@@ -234,16 +396,16 @@ impl Component for ReviewComponent {
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
                         .scroll((self.scroll, 0))
-                        .block(Block::default().borders(Borders::TOP).title(" Definition (↑/↓ or j/k to scroll) "));
-                    frame.render_widget(def_text, layout[3]);
+                        .block(Block::default().borders(Borders::TOP).title(" 详细信息 (↑/↓ or j/k to scroll) "));
+                    frame.render_widget(def_text, layout[2]);
 
                     // Render scrollbar if content is longer than visible area
-                    if content_height > layout[3].height {
+                    if content_height > layout[2].height {
                         frame.render_stateful_widget(
                             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                                 .begin_symbol(Some("↑"))
                                 .end_symbol(Some("↓")),
-                            layout[3].inner(Margin {
+                            layout[2].inner(Margin {
                                 vertical: 1,
                                 horizontal: 0,
                             }),

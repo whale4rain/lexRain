@@ -188,9 +188,35 @@ lexrain_progress.db (读写)
 
 ---
 
-## 🆕 最新更新 (v2.1)
+## 🆕 最新更新
 
-### 滚动功能增强 (2025-11-30)
+### v2.2 - Review 组件增强 (2025-11-30)
+
+#### ECDICT 完整元数据展示
+- ✅ **词形变化（Exchange）**: 完整解析并展示所有词形（过去式、过去分词、现在分词、第三人称单数、复数、比较级、最高级等）
+- ✅ **考试标签翻译**: `zk`→中考、`gk`→高考、`cet4`→CET-4、`cet6`→CET-6、`ky`→考研、`toefl`→TOEFL、`ielts`→IELTS、`gre`→GRE
+- ✅ **柯林斯星级可视化**: 用星星（★）直观显示 1-5 星评级
+- ✅ **词频信息**: 显示 BNC 和当代语料库频率排名
+- ✅ **紧凑布局**: 将单词、音标、词性、星级、考试标签整合到 5 行头部区域
+
+#### 支持的词形类型（9种）
+| 类型 | 中文 | 示例 |
+|------|------|------|
+| 原型 (0) | Lemma | perceive |
+| 过去式 (p) | Past | perceived |
+| 过去分词 (d) | Done | perceived |
+| 现在分词 (i) | Doing | perceiving |
+| 第三人称单数 (3) | Does | perceives |
+| 复数 (s) | Plural | apples |
+| 比较级 (r) | -er | better |
+| 最高级 (t) | -est | best |
+| 原型变换 (1) | Variant | s |
+
+详细信息请参阅: [REVIEW_ENHANCEMENT.md](./REVIEW_ENHANCEMENT.md)
+
+---
+
+### v2.1 - 滚动功能增强 (2025-11-30)
 
 #### Review 组件
 - ✅ **Definition 滚动**: 支持 `j`/`k` 或 `↑`/`↓` 滚动查看长定义
@@ -222,5 +248,5 @@ lexrain_progress.db (读写)
 ---
 
 **集成完成时间**: 2025-11-30  
-**版本**: v2.1 (ECDICT Integration + Scroll Feature)  
+**版本**: v2.2 (ECDICT Integration + Scroll + Full Metadata Display)  
 **状态**: ✅ 生产就绪
