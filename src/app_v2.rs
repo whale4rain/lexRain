@@ -2,6 +2,7 @@ use crate::components::*;
 use crate::components::{
     dashboard::DashboardComponent, dictionary::DictionaryComponent, history::HistoryComponent,
     review::ReviewComponent, statistics::StatisticsComponent, wordbook::WordbookComponent,
+    settings::SettingsComponent,
 };
 use crate::db::Database;
 use anyhow::Result;
@@ -16,6 +17,7 @@ pub struct AppV2 {
     history: Option<HistoryComponent>,
     statistics: Option<StatisticsComponent>,
     wordbook: Option<WordbookComponent>,
+    settings: Option<SettingsComponent>,
 }
 
 impl AppV2 {
@@ -28,6 +30,7 @@ impl AppV2 {
             history: None,
             statistics: None,
             wordbook: None,
+            settings: None,
         })
     }
 
@@ -72,6 +75,13 @@ impl AppV2 {
             Screen::Wordbook => {
                 if let Some(wb) = &mut self.wordbook {
                     wb.handle_key(key)?
+                } else {
+                    Action::NavigateTo(Screen::Dashboard)
+                }
+            }
+            Screen::Settings => {
+                if let Some(settings) = &mut self.settings {
+                    settings.handle_key(key)?
                 } else {
                     Action::NavigateTo(Screen::Dashboard)
                 }
@@ -138,6 +148,11 @@ impl AppV2 {
                 self.wordbook = Some(WordbookComponent::new(db)?);
                 self.current_screen = Screen::Wordbook;
             }
+            Screen::Settings => {
+                let db = Database::initialize()?;
+                self.settings = Some(SettingsComponent::new(db)?);
+                self.current_screen = Screen::Settings;
+            }
         }
         Ok(())
     }
@@ -184,6 +199,11 @@ impl AppV2 {
                     wb.view(frame, content_area);
                 }
             }
+            Screen::Settings => {
+                if let Some(settings) = &mut self.settings {
+                    settings.view(frame, content_area);
+                }
+            }
         }
 
         // Render footer
@@ -203,6 +223,7 @@ impl AppV2 {
             "History",
             "Statistics",
             "Wordbook",
+            "Settings",
             "Quit",
         ];
         let tabs = Tabs::new(titles)
@@ -214,6 +235,7 @@ impl AppV2 {
                 Screen::History => 3,
                 Screen::Statistics => 4,
                 Screen::Wordbook => 5,
+                Screen::Settings => 6,
             })
             .highlight_style(
                 Style::default()
@@ -248,6 +270,7 @@ impl AppV2 {
                 .add_item("d", "Dictionary")
                 .add_item("h", "History")
                 .add_item("s", "Statistics")
+                .add_item("c", "Settings")
                 .add_item("q", "Quit"),
             Screen::Review => StatusBar::new()
                 .add_item("Space", "Show Answer")
@@ -266,6 +289,10 @@ impl AppV2 {
                 .add_item("s", "Toggle Shuffle")
                 .add_item("↑/↓", "Select")
                 .add_item("q", "Back"),
+            Screen::Settings => StatusBar::new()
+                .add_item("e", "Edit")
+                .add_item("Enter", "Save")
+                .add_item("Esc", "Cancel/Back"),
         };
 
         status_bar.render(frame, footer_area);

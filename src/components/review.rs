@@ -160,6 +160,10 @@ impl ReviewComponent {
             self.db.add_review_history(word_id, quality, &log)?;
 
             self.completed_count += 1;
+            
+            // Update daily checkin after each review
+            let _ = self.db.update_daily_checkin();
+            
             self.next_card();
         }
         Ok(())

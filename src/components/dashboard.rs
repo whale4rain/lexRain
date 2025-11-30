@@ -67,6 +67,10 @@ impl Component for DashboardComponent {
                 self.show_completion_message = false;
                 Ok(Action::NavigateTo(Screen::Statistics))
             }
+            KeyCode::Char('c') => {
+                self.show_completion_message = false;
+                Ok(Action::NavigateTo(Screen::Settings))
+            }
             KeyCode::Esc => {
                 self.show_completion_message = false;
                 Ok(Action::None)
@@ -283,6 +287,13 @@ impl Component for DashboardComponent {
                     ),
                     Span::raw(" Statistics | "),
                     Span::styled(
+                        "'c'",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(" Settings | "),
+                    Span::styled(
                         "'q'",
                         Style::default()
                             .fg(Color::Yellow)
@@ -298,17 +309,44 @@ impl Component for DashboardComponent {
 
         // === RIGHT COLUMN ===
 
-        // Calendar
+        // Calendar with checkin marks
         let today = OffsetDateTime::now_local()
             .unwrap_or_else(|_| OffsetDateTime::now_utc())
             .date();
         
-        let event_store = CalendarEventStore::today(
+        // Create event store with today highlighted
+        let mut event_store = CalendarEventStore::today(
             Style::default()
                 .add_modifier(Modifier::BOLD)
                 .bg(Color::Blue)
                 .fg(Color::White),
         );
+
+        // Add checkin marks for completed days
+        if let Ok(checkin_dates) = self.db.get_checkin_dates(today.year(), today.month() as u32) {
+            let checkin_style = Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD)
+                .bg(Color::Rgb(0, 50, 0));
+            
+            for date_str in checkin_dates {
+                // Parse YYYY-MM-DD format
+                let parts: Vec<&str> = date_str.split('-').collect();
+                if parts.len() == 3 {
+                    if let (Ok(y), Ok(m), Ok(d)) = (
+                        parts[0].parse::<i32>(),
+                        parts[1].parse::<u8>(),
+                        parts[2].parse::<u8>()
+                    ) {
+                        if let Ok(month) = time::Month::try_from(m) {
+                            if let Ok(parsed_date) = time::Date::from_calendar_date(y, month, d) {
+                                event_store.add(parsed_date, checkin_style);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         let calendar = Monthly::new(today, event_store)
             .show_month_header(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))

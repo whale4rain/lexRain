@@ -4,6 +4,7 @@ pub mod dictionary;
 pub mod history;
 pub mod statistics;
 pub mod wordbook;
+pub mod settings;
 pub mod common;
 
 use anyhow::Result;
@@ -27,6 +28,7 @@ pub enum Screen {
     History,
     Statistics,
     Wordbook,
+    Settings,
 }
 
 /// Component trait for all UI components

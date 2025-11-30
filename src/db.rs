@@ -42,6 +42,32 @@ impl Database {
             [],
         )?;
 
+        // Create settings table
+        learn_conn.execute(
+            "CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+            [],
+        )?;
+
+        // Create daily checkin table
+        learn_conn.execute(
+            "CREATE TABLE IF NOT EXISTS daily_checkin (
+                date TEXT PRIMARY KEY,
+                completed_count INTEGER NOT NULL,
+                goal INTEGER NOT NULL,
+                achieved INTEGER NOT NULL  -- 0 or 1
+            )",
+            [],
+        )?;
+
+        // Initialize default settings if not exists
+        learn_conn.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('daily_goal', '20')",
+            [],
+        )?;
+
         Ok(Self { dict_conn, learn_conn })
     }
 
@@ -581,5 +607,81 @@ impl Database {
         }
 
         Ok(results)
+    }
+
+    // Settings methods
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let result: Option<String> = self.learn_conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(result)
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        self.learn_conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_daily_goal(&self) -> Result<i64> {
+        let goal = self.get_setting("daily_goal")?
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(20);
+        Ok(goal)
+    }
+
+    pub fn set_daily_goal(&self, goal: i64) -> Result<()> {
+        self.set_setting("daily_goal", &goal.to_string())
+    }
+
+    // Daily checkin methods
+    pub fn update_daily_checkin(&self) -> Result<()> {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let completed = self.get_today_completed_count()?;
+        let goal = self.get_daily_goal()?;
+        let achieved = if completed >= goal { 1 } else { 0 };
+
+        self.learn_conn.execute(
+            "INSERT OR REPLACE INTO daily_checkin (date, completed_count, goal, achieved) 
+             VALUES (?1, ?2, ?3, ?4)",
+            params![today, completed, goal, achieved],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_checkin_dates(&self, year: i32, month: u32) -> Result<Vec<String>> {
+        let start_date = format!("{:04}-{:02}-01", year, month);
+        let end_date = if month == 12 {
+            format!("{:04}-01-01", year + 1)
+        } else {
+            format!("{:04}-{:02}-01", year, month + 1)
+        };
+
+        let mut stmt = self.learn_conn.prepare(
+            "SELECT date FROM daily_checkin 
+             WHERE date >= ?1 AND date < ?2 AND achieved = 1"
+        )?;
+
+        let dates = stmt.query_map(params![start_date, end_date], |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(dates)
+    }
+
+    pub fn get_checkin_status(&self, date: &str) -> Result<Option<(i64, i64, bool)>> {
+        let result = self.learn_conn.query_row(
+            "SELECT completed_count, goal, achieved FROM daily_checkin WHERE date = ?1",
+            params![date],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get::<_, i32>(2)? == 1)),
+        ).optional()?;
+        Ok(result)
     }
 }
