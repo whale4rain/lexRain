@@ -12,6 +12,11 @@
 - **智能选词**: 优先牛津3000、柯林斯高星、BNC高频词
 - **本地存储**: SQLite 双数据库架构，隐私保护
 
+## 页面展示
+<img src="https://cdn.jsdelivr.net/gh/whale4rain/picx-images-hosting@master/20251201/image.milyrty5.webp" alt="image" />
+<img src="https://cdn.jsdelivr.net/gh/whale4rain/picx-images-hosting@master/20251201/image.96a6pmwbje.webp" alt="image" />
+<img src="https://cdn.jsdelivr.net/gh/whale4rain/picx-images-hosting@master/20251201/image.2yysph1dmh.webp" alt="image" />
+<img src="https://cdn.jsdelivr.net/gh/whale4rain/picx-images-hosting@master/20251201/image.5trgv9hor2.webp" alt="image" />
 ## 快速开始
 
 ```bash
