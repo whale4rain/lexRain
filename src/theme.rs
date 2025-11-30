@@ -21,8 +21,8 @@ impl Theme {
     /// 警告色 - 黄色
     pub const WARNING: Color = Color::Yellow;
     
-    /// 信息色 - 橙色（用于补充信息）
-    pub const INFO: Color = Color::Rgb(255, 165, 0); // Orange
+    /// 信息色 - 粉色
+    pub const INFO: Color = Color::Rgb(255, 105, 180); // Pink/HotPink
     
     /// 前景色 - 白色（主要文本）
     pub const FOREGROUND: Color = Color::White;

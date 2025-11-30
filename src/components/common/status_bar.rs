@@ -1,6 +1,6 @@
+use crate::theme::Theme;
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
     Frame,
@@ -29,9 +29,7 @@ impl StatusBar {
             }
             spans.push(Span::styled(
                 key,
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_warning(),
             ));
             spans.push(Span::raw(": "));
             spans.push(Span::raw(desc));
@@ -39,7 +37,7 @@ impl StatusBar {
 
         let line = Line::from(spans);
         let paragraph = Paragraph::new(line)
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Theme::text_secondary())
             .alignment(ratatui::layout::Alignment::Center);
 
         frame.render_widget(paragraph, area);

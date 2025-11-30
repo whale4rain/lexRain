@@ -2,13 +2,14 @@ use super::{Action, Component, Screen};
 use crate::components::common::Popup;
 use crate::db::Database;
 use crate::models::Word;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Margin, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{List, ListItem, ListState, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame,
 };
 use std::collections::HashMap;
@@ -86,25 +87,33 @@ impl HistoryComponent {
             reviewed_at.to_string()
         };
 
-        let (quality_text, quality_color) = match quality {
-            1 => ("Forgot (忘记)", Color::Red),
-            2 => ("Hard (困难)", Color::Yellow),
-            3 => ("Good (良好)", Color::Green),
-            4 => ("Easy (简单)", Color::Cyan),
-            _ => ("Unknown", Color::Gray),
+        let quality_style = match quality {
+            1 => Theme::text_accent(),
+            2 => Theme::text_warning(),
+            3 => Theme::text_success(),
+            4 => Theme::text_info(),
+            _ => Theme::text_secondary(),
+        };
+
+        let quality_text = match quality {
+            1 => "Forgot (忘记)",
+            2 => "Hard (困难)",
+            3 => "Good (良好)",
+            4 => "Easy (简单)",
+            _ => "Unknown",
         };
 
         lines.push(Line::from(vec![
-            Span::styled("复习时间: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(time_str, Style::default().fg(Color::Cyan)),
+            Span::styled("复习时间: ", Theme::text_secondary()),
+            Span::styled(time_str, Theme::text_title()),
             Span::raw("  |  "),
-            Span::styled("评分: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(quality_text, Style::default().fg(quality_color).add_modifier(Modifier::BOLD)),
+            Span::styled("评分: ", Theme::text_secondary()),
+            Span::styled(quality_text, quality_style),
         ]));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            Style::default().fg(Color::DarkGray),
+            Theme::text_secondary(),
         )));
         lines.push(Line::from(""));
 
@@ -112,14 +121,15 @@ impl HistoryComponent {
         let mut word_line_spans = vec![
             Span::styled(
                 &word.spelling,
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                Theme::text_title()
+                    .add_modifier(Modifier::UNDERLINED),
             ),
         ];
         if let Some(phonetic) = &word.phonetic {
             word_line_spans.push(Span::raw("  "));
             word_line_spans.push(Span::styled(
                 format!("[ {} ]", phonetic),
-                Style::default().fg(Color::DarkGray),
+                Theme::text_secondary(),
             ));
         }
         lines.push(Line::from(word_line_spans));
@@ -131,7 +141,7 @@ impl HistoryComponent {
             if !pos.is_empty() {
                 let pos_display = parse_pos(pos);
                 if !pos_display.is_empty() {
-                    meta_spans.push(Span::styled(pos_display, Style::default().fg(Color::Yellow)));
+                    meta_spans.push(Span::styled(pos_display, Theme::text_warning()));
                 }
             }
         }
@@ -139,14 +149,14 @@ impl HistoryComponent {
             if !meta_spans.is_empty() { meta_spans.push(Span::raw("  |  ")); }
             meta_spans.push(Span::styled(
                 format!("柯林斯 {}", "★".repeat(word.collins as usize)),
-                Style::default().fg(Color::Magenta),
+                Theme::text_info(),
             ));
         }
         if word.oxford {
             if !meta_spans.is_empty() { meta_spans.push(Span::raw("  |  ")); }
             meta_spans.push(Span::styled(
                 "牛津3000",
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Theme::text_success(),
             ));
         }
         if !meta_spans.is_empty() {
@@ -166,8 +176,8 @@ impl HistoryComponent {
                     }.to_string()
                 }).collect();
                 lines.push(Line::from(vec![
-                    Span::styled("考试: ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(tag_display.join(" · "), Style::default().fg(Color::Cyan)),
+                    Span::styled("考试: ", Theme::text_secondary()),
+                    Span::styled(tag_display.join(" · "), Theme::text_info()),
                 ]));
                 lines.push(Line::from(""));
             }
@@ -177,7 +187,7 @@ impl HistoryComponent {
         if let Some(translation) = &word.translation {
             lines.push(Line::from(Span::styled(
                 "━━━ 中文释义 ━━━",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Theme::text_title(),
             )));
             for line in translation.lines() {
                 if !line.trim().is_empty() {
@@ -190,7 +200,7 @@ impl HistoryComponent {
         // English Definition
         lines.push(Line::from(Span::styled(
             "━━━ English Definition ━━━",
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Theme::text_warning(),
         )));
         for line in word.definition.lines() {
             if !line.trim().is_empty() {
@@ -204,7 +214,7 @@ impl HistoryComponent {
             if !exchange.is_empty() {
                 lines.push(Line::from(Span::styled(
                     "━━━ 词形变化 ━━━",
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+                    Theme::text_accent(),
                 )));
                 let exchange_map = parse_exchange(exchange);
                 let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
@@ -213,11 +223,11 @@ impl HistoryComponent {
                         lines.push(Line::from(vec![
                             Span::styled(
                                 format!("  {} ", exchange_type_name(key)),
-                                Style::default().fg(Color::DarkGray),
+                                Theme::text_secondary(),
                             ),
                             Span::styled(
                                 value.clone(),
-                                Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                Theme::text_title().add_modifier(Modifier::ITALIC),
                             ),
                         ]));
                     }
@@ -232,10 +242,10 @@ impl HistoryComponent {
         if let Some(frq) = word.frq { freq_info.push(format!("当代: {}", frq)); }
         if !freq_info.is_empty() {
             lines.push(Line::from(vec![
-                Span::styled("词频: ", Style::default().fg(Color::DarkGray)),
+                Span::styled("词频: ", Theme::text_secondary()),
                 Span::styled(
                     freq_info.join(" | "),
-                    Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                    Theme::text_secondary().add_modifier(Modifier::ITALIC),
                 ),
             ]));
         }
@@ -310,12 +320,12 @@ impl Component for HistoryComponent {
             .history_list
             .iter()
             .map(|(word, reviewed_at, quality)| {
-                let quality_text = match quality {
-                    1 => ("Forgot", Color::Red),
-                    2 => ("Hard", Color::Yellow),
-                    3 => ("Good", Color::Green),
-                    4 => ("Easy", Color::Cyan),
-                    _ => ("Unknown", Color::Gray),
+                let (quality_text, quality_color) = match quality {
+                    1 => ("Forgot", Theme::ACCENT),
+                    2 => ("Hard", Theme::WARNING),
+                    3 => ("Good", Theme::SUCCESS),
+                    4 => ("Easy", Theme::INFO),
+                    _ => ("Unknown", Theme::SECONDARY),
                 };
 
                 let time_str = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(reviewed_at) {
@@ -327,17 +337,15 @@ impl Component for HistoryComponent {
                 let mut content_spans = vec![
                     Span::styled(
                         format!("{:20}", word.spelling),
-                        Style::default()
-                            .fg(Color::Cyan)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_title(),
                     ),
                     Span::raw(" | "),
                     Span::styled(
-                        format!("{:10}", quality_text.0),
-                        Style::default().fg(quality_text.1),
+                        format!("{:10}", quality_text),
+                        Theme::text_normal().fg(quality_color),
                     ),
                     Span::raw(" | "),
-                    Span::styled(time_str, Style::default().fg(Color::DarkGray)),
+                    Span::styled(time_str, Theme::text_secondary()),
                 ];
 
                 if let Some(translation) = &word.translation {
@@ -345,7 +353,7 @@ impl Component for HistoryComponent {
                         content_spans.push(Span::raw("\n  "));
                         content_spans.push(Span::styled(
                             first_meaning,
-                            Style::default().fg(Color::Gray),
+                            Theme::text_secondary(),
                         ));
                     }
                 }
@@ -361,12 +369,10 @@ impl Component for HistoryComponent {
         );
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(list_title))
+            .block(Theme::block_default().title(list_title))
             .highlight_style(
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_success()
+                    .add_modifier(Modifier::BOLD)
             )
             .highlight_symbol(">> ");
 
