@@ -33,6 +33,38 @@ fn exchange_type_name(key: &str) -> &str {
         _ => key,
     }
 }
+
+/// Parse pos field: "v:100/n:50" -> "动词/名词"
+fn parse_pos(pos: &str) -> String {
+    let parts: Vec<&str> = pos.split('/').collect();
+    let mut result = Vec::new();
+    
+    for part in parts {
+        if let Some((pos_code, _weight)) = part.split_once(':') {
+            let pos_name = match pos_code {
+                "n" => "n. 名词",
+                "v" => "v. 动词",
+                "adj" | "a" | "j" => "adj. 形容词",
+                "adv" | "ad" | "r" => "adv. 副词",
+                "prep" => "prep. 介词",
+                "conj" | "c" => "conj. 连词",
+                "pron" => "pron. 代词",
+                "int" | "i" => "interj. 感叹词",
+                "art" => "art. 冠词",
+                "num" => "num. 数词",
+                "aux" => "aux. 助动词",
+                _ => continue,
+            };
+            result.push(pos_name);
+        }
+    }
+    
+    if result.is_empty() {
+        String::new()
+    } else {
+        result.join(" / ")
+    }
+}
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
@@ -230,10 +262,13 @@ impl Component for ReviewComponent {
             let mut meta_spans = vec![];
             if let Some(pos) = &word.pos {
                 if !pos.is_empty() {
-                    meta_spans.push(Span::styled(
-                        format!("词性: {}", pos),
-                        Style::default().fg(Color::Yellow),
-                    ));
+                    let pos_display = parse_pos(pos);
+                    if !pos_display.is_empty() {
+                        meta_spans.push(Span::styled(
+                            pos_display,
+                            Style::default().fg(Color::Yellow),
+                        ));
+                    }
                 }
             }
             if word.collins > 0 {
@@ -302,58 +337,21 @@ impl Component for ReviewComponent {
                     frame.render_widget(hint, layout[2]);
                 }
                 ReviewState::Answer => {
-                    let mut def_lines = vec![];
+                    // Split definition area into two columns: left for definitions, right for exchange
+                    let def_layout = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .constraints([
+                            Constraint::Percentage(70),  // Left: Definitions
+                            Constraint::Percentage(30),  // Right: Exchange
+                        ])
+                        .split(layout[2]);
                     
-                    // Exchange (词形变化)
-                    if let Some(exchange) = &word.exchange {
-                        if !exchange.is_empty() {
-                            def_lines.push(Line::from(Span::styled(
-                                "━━━ 词形变化 ━━━",
-                                Style::default()
-                                    .fg(Color::Magenta)
-                                    .add_modifier(Modifier::BOLD),
-                            )));
-                            
-                            let exchange_map = parse_exchange(exchange);
-                            let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
-                            
-                            for key in &order {
-                                if let Some(value) = exchange_map.get(*key) {
-                                    def_lines.push(Line::from(vec![
-                                        Span::styled(
-                                            format!("  {}: ", exchange_type_name(key)),
-                                            Style::default().fg(Color::DarkGray),
-                                        ),
-                                        Span::styled(
-                                            value.clone(),
-                                            Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
-                                        ),
-                                    ]));
-                                }
-                            }
-                            def_lines.push(Line::from(""));
-                        }
-                    }
+                    // Left column: Chinese + English definitions
+                    let mut left_lines = vec![];
                     
-                    // English Definition
-                    def_lines.push(Line::from(Span::styled(
-                        "━━━ English Definition ━━━",
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
-                    )));
-                    
-                    // Split definition by line breaks for better formatting
-                    for line in word.definition.lines() {
-                        if !line.trim().is_empty() {
-                            def_lines.push(Line::from(format!("  {}", line)));
-                        }
-                    }
-
-                    // Chinese Translation
+                    // Chinese Translation (top)
                     if let Some(translation) = &word.translation {
-                        def_lines.push(Line::from(""));
-                        def_lines.push(Line::from(Span::styled(
+                        left_lines.push(Line::from(Span::styled(
                             "━━━ 中文释义 ━━━",
                             Style::default()
                                 .fg(Color::Cyan)
@@ -362,22 +360,37 @@ impl Component for ReviewComponent {
                         
                         for line in translation.lines() {
                             if !line.trim().is_empty() {
-                                def_lines.push(Line::from(format!("  {}", line)));
+                                left_lines.push(Line::from(format!("  {}", line)));
                             }
+                        }
+                        left_lines.push(Line::from(""));
+                    }
+                    
+                    // English Definition (bottom)
+                    left_lines.push(Line::from(Span::styled(
+                        "━━━ English Definition ━━━",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    )));
+                    
+                    for line in word.definition.lines() {
+                        if !line.trim().is_empty() {
+                            left_lines.push(Line::from(format!("  {}", line)));
                         }
                     }
                     
-                    // Frequency info (if available)
+                    // Frequency info at bottom
                     let mut freq_info = vec![];
                     if let Some(bnc) = word.bnc {
                         freq_info.push(format!("BNC: {}", bnc));
                     }
                     if let Some(frq) = word.frq {
-                        freq_info.push(format!("当代语料库: {}", frq));
+                        freq_info.push(format!("当代: {}", frq));
                     }
                     if !freq_info.is_empty() {
-                        def_lines.push(Line::from(""));
-                        def_lines.push(Line::from(vec![
+                        left_lines.push(Line::from(""));
+                        left_lines.push(Line::from(vec![
                             Span::styled(
                                 "词频: ",
                                 Style::default().fg(Color::DarkGray),
@@ -389,30 +402,76 @@ impl Component for ReviewComponent {
                         ]));
                     }
 
-                    // Calculate content height for scrollbar
-                    let content_height = def_lines.len() as u16;
-
-                    let def_text = Paragraph::new(def_lines)
+                    let left_content_height = left_lines.len() as u16;
+                    let left_text = Paragraph::new(left_lines)
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
                         .scroll((self.scroll, 0))
-                        .block(Block::default().borders(Borders::TOP).title(" 详细信息 (↑/↓ or j/k to scroll) "));
-                    frame.render_widget(def_text, layout[2]);
+                        .block(Block::default().borders(Borders::ALL).title(" 释义 (j/k: scroll) "));
+                    frame.render_widget(left_text, def_layout[0]);
 
-                    // Render scrollbar if content is longer than visible area
-                    if content_height > layout[2].height {
+                    // Left scrollbar
+                    if left_content_height > def_layout[0].height {
                         frame.render_stateful_widget(
                             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                                 .begin_symbol(Some("↑"))
                                 .end_symbol(Some("↓")),
-                            layout[2].inner(Margin {
+                            def_layout[0].inner(Margin {
                                 vertical: 1,
                                 horizontal: 0,
                             }),
-                            &mut ScrollbarState::new(content_height as usize)
+                            &mut ScrollbarState::new(left_content_height as usize)
                                 .position(self.scroll as usize),
                         );
                     }
+                    
+                    // Right column: Exchange (词形变化)
+                    let mut right_lines = vec![];
+                    
+                    if let Some(exchange) = &word.exchange {
+                        if !exchange.is_empty() {
+                            right_lines.push(Line::from(Span::styled(
+                                "词形变化",
+                                Style::default()
+                                    .fg(Color::Magenta)
+                                    .add_modifier(Modifier::BOLD),
+                            )));
+                            right_lines.push(Line::from(""));
+                            
+                            let exchange_map = parse_exchange(exchange);
+                            let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
+                            
+                            for key in &order {
+                                if let Some(value) = exchange_map.get(*key) {
+                                    right_lines.push(Line::from(Span::styled(
+                                        exchange_type_name(key),
+                                        Style::default().fg(Color::DarkGray),
+                                    )));
+                                    right_lines.push(Line::from(Span::styled(
+                                        format!("  {}", value),
+                                        Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                    )));
+                                    right_lines.push(Line::from(""));
+                                }
+                            }
+                        } else {
+                            right_lines.push(Line::from(Span::styled(
+                                "无词形变化",
+                                Style::default().fg(Color::DarkGray),
+                            )));
+                        }
+                    } else {
+                        right_lines.push(Line::from(Span::styled(
+                            "无词形变化",
+                            Style::default().fg(Color::DarkGray),
+                        )));
+                    }
+
+                    let right_text = Paragraph::new(right_lines)
+                        .wrap(Wrap { trim: true })
+                        .alignment(ratatui::layout::Alignment::Left)
+                        .block(Block::default().borders(Borders::ALL));
+                    frame.render_widget(right_text, def_layout[1]);
                 }
             }
         } else {
