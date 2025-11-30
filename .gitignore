@@ -20,3 +20,5 @@ Cargo.lock
 # User data
 my_words.json
 custom_*.json
+ecdict-sqlite-28/*
+ecdict-sqlite-28
