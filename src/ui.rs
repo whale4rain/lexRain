@@ -2,12 +2,13 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Tabs, Wrap, Chart, Dataset, Axis, GraphType},
+    widgets::{Block, BorderType, Borders, Gauge, List, ListItem, Paragraph, Tabs, Wrap, Chart, Dataset, Axis, GraphType},
     symbols,
     Frame,
 };
 use crate::app::{App, CurrentScreen, ReviewState};
 use crate::models::LearningStatus;
+use crate::theme::Theme;
 
 pub fn render(app: &mut App, frame: &mut Frame) {
     let chunks = Layout::default()
@@ -27,7 +28,13 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 fn render_header(app: &App, frame: &mut Frame, area: Rect) {
     let titles = vec!["Dashboard", "Review", "Dictionary", "History", "Statistics", "Quit"];
     let tabs = Tabs::new(titles)
-        .block(Block::default().borders(Borders::ALL).title(" LexRain "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Thick)
+                .border_style(Theme::text_normal())
+                .title(" LexRain ")
+        )
         .select(match app.current_screen {
             CurrentScreen::Dashboard => 0,
             CurrentScreen::Review => 1,
@@ -36,7 +43,12 @@ fn render_header(app: &App, frame: &mut Frame, area: Rect) {
             CurrentScreen::Statistics => 4,
             CurrentScreen::Exiting => 5,
         })
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow));
+        .highlight_style(
+            Style::default()
+                .fg(Theme::PRIMARY)
+                .bg(Theme::FOREGROUND)
+                .add_modifier(Modifier::BOLD)
+        );
     frame.render_widget(tabs, area);
 }
 

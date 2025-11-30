@@ -5,6 +5,7 @@ use crate::components::{
     settings::SettingsComponent,
 };
 use crate::db::Database;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::KeyEvent;
 use ratatui::{layout::Rect, Frame};
@@ -212,8 +213,8 @@ impl AppV2 {
 
     fn render_header(&self, frame: &mut Frame, area: Rect) {
         use ratatui::{
-            style::{Color, Modifier, Style},
-            widgets::{Block, Borders, Tabs},
+            style::{Modifier, Style},
+            widgets::{Block, BorderType, Borders, Tabs},
         };
 
         let titles = vec![
@@ -227,7 +228,13 @@ impl AppV2 {
             "Quit",
         ];
         let tabs = Tabs::new(titles)
-            .block(Block::default().borders(Borders::ALL).title(" LexRain "))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Thick)
+                    .border_style(Theme::text_normal())
+                    .title(" LexRain ")
+            )
             .select(match self.current_screen {
                 Screen::Dashboard => 0,
                 Screen::Review => 1,
@@ -239,8 +246,9 @@ impl AppV2 {
             })
             .highlight_style(
                 Style::default()
+                    .fg(Theme::PRIMARY)
+                    .bg(Theme::FOREGROUND)
                     .add_modifier(Modifier::BOLD)
-                    .fg(Color::Yellow),
             );
 
         let header_area = Rect {

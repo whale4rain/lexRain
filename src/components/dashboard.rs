@@ -178,52 +178,52 @@ impl Component for DashboardComponent {
         // Show completion message or instructions
         if self.show_completion_message {
             let completion_lines = vec![
-                Line::from(Span::styled(
-                    "✓ Great job! All due reviews completed!",
-                    Theme::text_success(),
-                )),
                 Line::from(""),
                 Line::from(vec![
-                    Span::raw("Press "),
-                    Span::styled("'w'", Theme::text_warning()),
-                    Span::raw(" for "),
-                    Span::styled("Wordbook Review", Theme::text_title()),
-                    Span::raw(" | "),
-                    Span::styled("'d'", Theme::text_warning()),
-                    Span::raw(" for Dictionary"),
+                    Span::raw("    "),
+                    Span::styled(" r ", Theme::text_normal().bg(Theme::PRIMARY)),
+                    Span::raw(" Review    "),
+                    Span::styled(" w ", Theme::text_normal().bg(Theme::SUCCESS)),
+                    Span::raw(" Wordbook    "),
+                    Span::styled(" d ", Theme::text_normal().bg(Theme::WARNING)),
+                    Span::raw(" Dictionary  "),
                 ]),
+                Line::from(""),
                 Line::from(vec![
-                    Span::styled("'h'", Theme::text_warning()),
-                    Span::raw(" for History | "),
-                    Span::styled("'s'", Theme::text_warning()),
-                    Span::raw(" for Statistics | "),
-                    Span::styled("'q'", Theme::text_warning()),
-                    Span::raw(" to Quit"),
+                    Span::raw("    "),
+                    Span::styled(" h ", Theme::text_normal().bg(Theme::INFO)),
+                    Span::raw(" History   "),
+                    Span::styled(" s ", Theme::text_normal().bg(Theme::ACCENT)),
+                    Span::raw(" Statistics  "),
+                    Span::styled(" c ", Theme::text_normal().bg(Theme::PRIMARY)),
+                    Span::raw(" Settings    "),
                 ]),
             ];
             let completion_msg = Paragraph::new(completion_lines)
-                .block(Theme::block_success_with_title(" 🎉 Actions "))
+                .block(Theme::block_success_with_title(" 🎉 Quick Actions "))
                 .alignment(ratatui::layout::Alignment::Center);
             frame.render_widget(completion_msg, left_chunks[2]);
         } else {
             let instructions = Paragraph::new(vec![
+                Line::from(""),
                 Line::from(vec![
-                    Span::styled("'r'", Theme::text_warning()),
-                    Span::raw(" Review Due Words | "),
-                    Span::styled("'w'", Theme::text_warning()),
-                    Span::raw(" Wordbook Review"),
+                    Span::raw("    "),
+                    Span::styled(" r ", Theme::text_normal().bg(Theme::PRIMARY)),
+                    Span::raw(" Review    "),
+                    Span::styled(" w ", Theme::text_normal().bg(Theme::SUCCESS)),
+                    Span::raw(" Wordbook    "),
+                    Span::styled(" d ", Theme::text_normal().bg(Theme::WARNING)),
+                    Span::raw(" Dictionary  "),
                 ]),
+                Line::from(""),
                 Line::from(vec![
-                    Span::styled("'d'", Theme::text_warning()),
-                    Span::raw(" Dictionary | "),
-                    Span::styled("'h'", Theme::text_warning()),
-                    Span::raw(" History | "),
-                    Span::styled("'s'", Theme::text_warning()),
-                    Span::raw(" Statistics | "),
-                    Span::styled("'c'", Theme::text_warning()),
-                    Span::raw(" Settings | "),
-                    Span::styled("'q'", Theme::text_warning()),
-                    Span::raw(" Quit"),
+                    Span::raw("    "),
+                    Span::styled(" h ", Theme::text_normal().bg(Theme::INFO)),
+                    Span::raw(" History   "),
+                    Span::styled(" s ", Theme::text_normal().bg(Theme::ACCENT)),
+                    Span::raw(" Statistics  "),
+                    Span::styled(" c ", Theme::text_normal().bg(Theme::PRIMARY)),
+                    Span::raw(" Settings    "),
                 ]),
             ])
             .block(Theme::block_with_title(" ⌨️  Quick Actions "))
