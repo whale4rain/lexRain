@@ -11,6 +11,7 @@
 ### 界面功能
 - ✅ Dashboard - 统计信息、今日进度
 - ✅ Review - 双面板滚动（释义 70% + 词形变化 30%）
+- ✅ Wordbook - 单词本选择，按标签分类（支持乱序）
 - ✅ Dictionary - 完整元数据显示、搜索、滚动
 - ✅ History - 复习历史记录、导航
 - ✅ Statistics - 间隔分布、每日复习统计
@@ -31,6 +32,21 @@
 - ✅ 词频信息（BNC + 当代语料库）
 
 ## 版本历史
+
+### v2.5 (2025-12-01)
+**单词本功能**
+- Wordbook: 按标签分类显示所有单词本（中考、高考、CET-4/6、考研、TOEFL、IELTS、GRE）
+- Wordbook: 显示每个单词本的词汇量统计
+- Wordbook: ↑/↓ 或 j/k 选择单词本
+- Wordbook: s 键切换乱序/顺序模式（🔀/📚 图标）
+- Wordbook: Enter 开始复习选中单词本
+- Review: 支持单词本模式（ReviewMode::Wordbook）
+  - 乱序模式: SQL `ORDER BY RANDOM()`
+  - 顺序模式: 按重要性排序（oxford DESC, collins DESC, bnc ASC, frq ASC）
+- Review: 单词本复习限制 100 词/次
+- Database: `get_wordbooks()` - 获取所有单词本（按词数排序）
+- Database: `get_words_by_tag(tag, limit, shuffle)` - 按标签获取单词
+- Dashboard: w 键快捷进入单词本选择
 
 ### v2.4 (2025-11-30)
 **浮窗功能**

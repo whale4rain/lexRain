@@ -1,7 +1,7 @@
 use crate::components::*;
 use crate::components::{
     dashboard::DashboardComponent, dictionary::DictionaryComponent, history::HistoryComponent,
-    review::ReviewComponent, statistics::StatisticsComponent,
+    review::ReviewComponent, statistics::StatisticsComponent, wordbook::WordbookComponent,
 };
 use crate::db::Database;
 use anyhow::Result;
@@ -15,6 +15,7 @@ pub struct AppV2 {
     dictionary: Option<DictionaryComponent>,
     history: Option<HistoryComponent>,
     statistics: Option<StatisticsComponent>,
+    wordbook: Option<WordbookComponent>,
 }
 
 impl AppV2 {
@@ -26,6 +27,7 @@ impl AppV2 {
             dictionary: None,
             history: None,
             statistics: None,
+            wordbook: None,
         })
     }
 
@@ -67,6 +69,13 @@ impl AppV2 {
                     Action::NavigateTo(Screen::Dashboard)
                 }
             }
+            Screen::Wordbook => {
+                if let Some(wb) = &mut self.wordbook {
+                    wb.handle_key(key)?
+                } else {
+                    Action::NavigateTo(Screen::Dashboard)
+                }
+            }
         };
 
         self.handle_action(action)
@@ -81,6 +90,10 @@ impl AppV2 {
             }
             Action::LearnNew => {
                 self.start_learn_new()?;
+                Ok(false)
+            }
+            Action::StartWordbookReview(tag, shuffle) => {
+                self.start_wordbook_review(&tag, shuffle)?;
                 Ok(false)
             }
             Action::None => Ok(false),
@@ -124,6 +137,11 @@ impl AppV2 {
                 self.statistics = Some(StatisticsComponent::new(db)?);
                 self.current_screen = Screen::Statistics;
             }
+            Screen::Wordbook => {
+                let db = Database::initialize()?;
+                self.wordbook = Some(WordbookComponent::new(db)?);
+                self.current_screen = Screen::Wordbook;
+            }
         }
         Ok(())
     }
@@ -165,6 +183,11 @@ impl AppV2 {
                     stats.view(frame, content_area);
                 }
             }
+            Screen::Wordbook => {
+                if let Some(wb) = &mut self.wordbook {
+                    wb.view(frame, content_area);
+                }
+            }
         }
 
         // Render footer
@@ -183,6 +206,7 @@ impl AppV2 {
             "Dictionary",
             "History",
             "Statistics",
+            "Wordbook",
             "Quit",
         ];
         let tabs = Tabs::new(titles)
@@ -193,6 +217,7 @@ impl AppV2 {
                 Screen::Dictionary => 2,
                 Screen::History => 3,
                 Screen::Statistics => 4,
+                Screen::Wordbook => 5,
             })
             .highlight_style(
                 Style::default()
@@ -224,6 +249,7 @@ impl AppV2 {
             Screen::Dashboard => StatusBar::new()
                 .add_item("r", "Review")
                 .add_item("n", "Learn New")
+                .add_item("w", "Wordbook")
                 .add_item("d", "Dictionary")
                 .add_item("h", "History")
                 .add_item("s", "Statistics")
@@ -240,6 +266,11 @@ impl AppV2 {
                 .add_item("q/Esc", "Back"),
             Screen::History => StatusBar::new().add_item("q/Esc", "Back"),
             Screen::Statistics => StatusBar::new().add_item("q/Esc", "Back"),
+            Screen::Wordbook => StatusBar::new()
+                .add_item("Enter", "Start Review")
+                .add_item("s", "Toggle Shuffle")
+                .add_item("↑/↓", "Select")
+                .add_item("q", "Back"),
         };
 
         status_bar.render(frame, footer_area);
@@ -251,6 +282,20 @@ impl AppV2 {
 
         if !review.start_review(review::ReviewMode::LearnNew)? {
             // No new words available
+            return Ok(());
+        }
+
+        self.review = Some(review);
+        self.current_screen = Screen::Review;
+        Ok(())
+    }
+
+    pub fn start_wordbook_review(&mut self, tag: &str, shuffle: bool) -> Result<()> {
+        let db = Database::initialize()?;
+        let mut review = ReviewComponent::new(db);
+
+        if !review.start_review(review::ReviewMode::Wordbook(tag.to_string(), shuffle))? {
+            // No words available in this wordbook
             return Ok(());
         }
 

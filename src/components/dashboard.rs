@@ -49,6 +49,10 @@ impl Component for DashboardComponent {
                 // Learn new words - handled by app
                 Ok(Action::LearnNew)
             }
+            KeyCode::Char('w') => {
+                self.show_completion_message = false;
+                Ok(Action::NavigateTo(Screen::Wordbook))
+            }
             KeyCode::Char('d') => {
                 self.show_completion_message = false;
                 Ok(Action::NavigateTo(Screen::Dictionary))

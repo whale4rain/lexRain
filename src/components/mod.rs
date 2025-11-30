@@ -3,6 +3,7 @@ pub mod review;
 pub mod dictionary;
 pub mod history;
 pub mod statistics;
+pub mod wordbook;
 pub mod common;
 
 use anyhow::Result;
@@ -13,6 +14,7 @@ use ratatui::{layout::Rect, Frame};
 #[derive(Debug, Clone)]
 pub enum Action {
     NavigateTo(Screen),
+    StartWordbookReview(String, bool), // (tag, shuffle)
     LearnNew,
     Quit,
     None,
@@ -25,6 +27,7 @@ pub enum Screen {
     Dictionary,
     History,
     Statistics,
+    Wordbook,
 }
 
 /// Component trait for all UI components

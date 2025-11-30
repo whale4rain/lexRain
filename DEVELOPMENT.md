@@ -29,6 +29,7 @@ src/
 └── components/          # 组件目录
     ├── dashboard.rs     # 主界面
     ├── review.rs        # 复习模式
+    ├── wordbook.rs      # 单词本选择
     ├── dictionary.rs    # 词典
     ├── history.rs       # 历史
     ├── statistics.rs    # 统计
@@ -61,6 +62,39 @@ impl Popup {
 if self.show_popup {
     let lines = self.build_detail_lines(word, log);
     self.popup.render(frame, area, lines);
+}
+```
+
+### 单词本组件
+```rust
+// wordbook.rs
+pub struct WordbookComponent {
+    db: Database,
+    wordbooks: Vec<(String, usize)>, // (tag, count)
+    selected_index: usize,
+    shuffle_mode: bool,
+}
+
+// 数据库方法
+impl Database {
+    pub fn get_wordbooks() -> Result<Vec<(String, usize)>> {
+        // SELECT tag, COUNT(*) FROM stardict
+        // WHERE tag IS NOT NULL AND tag != ''
+        // GROUP BY tag ORDER BY count DESC
+    }
+
+    pub fn get_words_by_tag(tag: &str, limit: usize, shuffle: bool) -> Result<Vec<(Word, LearningLog)>> {
+        // 乱序: ORDER BY RANDOM()
+        // 顺序: ORDER BY oxford DESC, collins DESC, bnc ASC, frq ASC
+        // WHERE tag LIKE '%' || tag || '%'
+    }
+}
+
+// Review 模式
+pub enum ReviewMode {
+    Due,
+    LearnNew,
+    Wordbook(String, bool), // (tag, shuffle)
 }
 ```
 

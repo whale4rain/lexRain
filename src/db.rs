@@ -513,4 +513,73 @@ impl Database {
 
         Ok(results)
     }
+
+    /// 获取所有可用的单词本（按 tag 分组，返回 tag 和单词数量）
+    pub fn get_wordbooks(&self) -> Result<Vec<(String, usize)>> {
+        let mut stmt = self.dict_conn.prepare(
+            "SELECT tag, COUNT(*) as count
+             FROM stardict
+             WHERE tag IS NOT NULL AND tag != ''
+             AND translation IS NOT NULL
+             GROUP BY tag
+             ORDER BY count DESC"
+        )?;
+
+        let wordbooks = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(wordbooks)
+    }
+
+    /// 根据 tag 获取单词列表（支持乱序）
+    pub fn get_words_by_tag(&self, tag: &str, limit: usize, shuffle: bool) -> Result<Vec<(Word, LearningLog)>> {
+        let order_clause = if shuffle {
+            "ORDER BY RANDOM()"
+        } else {
+            "ORDER BY oxford DESC, collins DESC, bnc ASC, frq ASC"
+        };
+
+        let query = format!(
+            "SELECT id, word, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange
+             FROM stardict
+             WHERE tag LIKE '%' || ?1 || '%'
+             AND translation IS NOT NULL
+             {}
+             LIMIT ?2",
+            order_clause
+        );
+
+        let mut stmt = self.dict_conn.prepare(&query)?;
+        let rows = stmt.query_map(params![tag, limit], |row| {
+            Ok(Word {
+                id: Some(row.get(0)?),
+                spelling: row.get(1)?,
+                phonetic: row.get(2)?,
+                definition: row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+                translation: row.get(4)?,
+                pos: row.get(5)?,
+                collins: row.get::<_, Option<i32>>(6)?.unwrap_or(0),
+                oxford: row.get::<_, Option<i32>>(7)?.unwrap_or(0) > 0,
+                tag: row.get(8)?,
+                bnc: row.get(9)?,
+                frq: row.get(10)?,
+                exchange: row.get(11)?,
+            })
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            let word = row?;
+            if let Some(word_id) = word.id {
+                self.init_learning_log(word_id)?;
+                if let Ok(Some(log)) = self.get_learning_log(word_id) {
+                    results.push((word, log));
+                }
+            }
+        }
+
+        Ok(results)
+    }
 }

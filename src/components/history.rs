@@ -1,7 +1,7 @@
 use super::{Action, Component, Screen};
 use crate::components::common::Popup;
 use crate::db::Database;
-use crate::models::{Word, LearningLog, LearningStatus};
+use crate::models::Word;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -58,7 +58,6 @@ fn parse_pos(pos: &str) -> String {
 }
 
 pub struct HistoryComponent {
-    db: Database,
     history_list: Vec<(Word, String, u8)>, // word, reviewed_at, quality
     selected_index: usize,
     show_popup: bool,
@@ -69,7 +68,6 @@ impl HistoryComponent {
     pub fn new(db: Database) -> Result<Self> {
         let history_list = db.get_recent_reviews(100)?;
         Ok(Self {
-            db,
             history_list,
             selected_index: 0,
             show_popup: false,

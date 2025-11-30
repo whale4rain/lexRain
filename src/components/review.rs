@@ -116,6 +116,7 @@ impl ReviewComponent {
         self.review_queue = match mode {
             ReviewMode::Due => self.db.get_due_reviews()?,
             ReviewMode::LearnNew => self.db.get_new_words_to_learn(20)?,
+            ReviewMode::Wordbook(tag, shuffle) => self.db.get_words_by_tag(&tag, 100, shuffle)?,
         };
 
         self.total_count = self.review_queue.len();
@@ -165,6 +166,7 @@ impl ReviewComponent {
 pub enum ReviewMode {
     Due,
     LearnNew,
+    Wordbook(String, bool), // (tag, shuffle)
 }
 
 impl Component for ReviewComponent {
