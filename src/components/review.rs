@@ -395,6 +395,23 @@ impl Component for ReviewComponent {
                 .block(Block::default().borders(Borders::NONE));
             frame.render_widget(header, layout[1]);
 
+            // Quality indicator (always shown, in bottom-right corner)
+            let quality_area = Rect {
+                x: layout[2].x + layout[2].width.saturating_sub(12),
+                y: layout[2].y + layout[2].height.saturating_sub(2),
+                width: 10,
+                height: 1,
+            };
+            let quality_line = Line::from(vec![
+                Span::styled("  ", Theme::text_normal().bg(Theme::QUALITY_1)),
+                Span::styled("  ", Theme::text_normal().bg(Theme::QUALITY_2)),
+                Span::styled("  ", Theme::text_normal().bg(Theme::QUALITY_3)),
+                Span::styled("  ", Theme::text_normal().bg(Theme::QUALITY_4)),
+            ]);
+            let quality_widget = Paragraph::new(quality_line)
+                .alignment(ratatui::layout::Alignment::Right);
+            frame.render_widget(quality_widget, quality_area);
+
             // Definition
             match self.state {
                 ReviewState::Question => {

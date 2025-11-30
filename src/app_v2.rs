@@ -282,7 +282,10 @@ impl AppV2 {
                 .add_item("q", "Quit"),
             Screen::Review => StatusBar::new()
                 .add_item("Space", "Show Answer")
-                .add_item("1-4", "Rate Quality")
+                .add_item("1", "Hard")
+                .add_item("2", "Difficult")
+                .add_item("3", "Good")
+                .add_item("4", "Easy")
                 .add_item("q/Esc", "Back"),
             Screen::Dictionary => StatusBar::new()
                 .add_item("Type", "Search")

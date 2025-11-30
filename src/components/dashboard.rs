@@ -120,58 +120,64 @@ impl Component for DashboardComponent {
         let stats_lines = vec![
             Line::from(vec![
                 Span::styled("📚 ", Theme::text_title()),
-                Span::styled("Learning: ", Theme::text_normal()),
+                Span::styled("词汇库: ", Theme::text_normal()),
                 Span::styled(
-                    format!("{} words", total),
+                    format!("{}", total),
                     Theme::text_title(),
                 ),
-                Span::styled(" (total in your vocabulary)", Theme::text_secondary()),
+                Span::styled(" 个单词", Theme::text_secondary()),
             ]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("✓ ", Theme::text_success()),
-                Span::styled("Mastered: ", Theme::text_normal()),
+                Span::styled("已掌握: ", Theme::text_normal()),
                 Span::styled(
-                    format!("{} words", mastered),
+                    format!("{}", mastered),
                     Theme::text_success(),
                 ),
-                Span::styled(" (fully learned)", Theme::text_secondary()),
+                Span::styled(" 个", Theme::text_secondary()),
             ]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("⏰ ", Theme::text_warning()),
-                Span::styled("Due Now: ", Theme::text_normal()),
+                Span::styled("待复习: ", Theme::text_normal()),
                 Span::styled(
-                    format!("{} words", due),
+                    format!("{}", due),
                     Theme::text_warning(),
                 ),
-                Span::styled(" (need review)", Theme::text_secondary()),
+                Span::styled(" 个", Theme::text_secondary()),
             ]),
         ];
         let stats_widget = Paragraph::new(stats_lines)
-            .block(Theme::block_with_title(" 📊 Learning Stats "))
+            .block(Theme::block_with_title(" 📊 学习统计 "))
             .style(Theme::text_normal());
         frame.render_widget(stats_widget, left_chunks[0]);
 
-        // Today's progress card
+        // Today's progress card - 显示当天真实完成的复习数量
         let daily_goal = self.db.get_daily_goal().unwrap_or(20);
+        let today_reviews = self.db.get_today_completed_count().unwrap_or(0);
         let progress_text = vec![
             Line::from(vec![
                 Span::styled("🎯 ", Theme::text_accent()),
-                Span::styled("Today: ", Theme::text_normal()),
+                Span::styled("今日已复习: ", Theme::text_normal()),
                 Span::styled(
-                    format!("{}", self.today_completed),
-                    Theme::text_accent(),
+                    format!("{}", today_reviews),
+                    if today_reviews >= daily_goal { Theme::text_success() } else { Theme::text_accent() },
                 ),
                 Span::raw(" / "),
                 Span::styled(
-                    format!("{} words reviewed", daily_goal),
+                    format!("{}", daily_goal),
                     Theme::text_title(),
+                ),
+                Span::styled(" 个", Theme::text_secondary()),
+                Span::styled(
+                    if today_reviews >= daily_goal { " ✓" } else { "" },
+                    Theme::text_success(),
                 ),
             ]),
         ];
         let progress_widget = Paragraph::new(progress_text)
-            .block(Theme::block_with_title(" 📅 Today's Progress "))
+            .block(Theme::block_with_title(" 📅 今日进度 "))
             .style(Theme::text_normal());
         frame.render_widget(progress_widget, left_chunks[1]);
 

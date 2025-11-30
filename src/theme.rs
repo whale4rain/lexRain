@@ -59,6 +59,19 @@ impl Theme {
     ///pub const BACKGROUND: Color = Color::Rgb(25, 25, 35); // 深蓝灰色背景
     pub const BACKGROUND: Color = Color::Reset; // 如需透明背景，取消注释此行并注释上一行
 
+    // === Quality评分颜色（从差到好的渐变） ===
+    /// Quality 1 - 很差（完全不记得）- 深红色
+    pub const QUALITY_1: Color = Color::Rgb(220, 50, 50);
+    
+    /// Quality 2 - 较差（记得模糊）- 橙红色
+    pub const QUALITY_2: Color = Color::Rgb(255, 140, 0);
+    
+    /// Quality 3 - 较好（记得清楚）- 金黄色
+    pub const QUALITY_3: Color = Color::Rgb(255, 215, 0);
+    
+    /// Quality 4 - 很好（完全记得）- 亮绿色
+    pub const QUALITY_4: Color = Color::Rgb(50, 205, 50);
+
     // === 边框样式 ===
     
     /// 标准边框样式（白色粗边框 + 背景色）

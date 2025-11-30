@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     symbols,
     text::Span,
-    widgets::{Axis, Chart, Dataset, GraphType, Paragraph},
+    widgets::{Axis, Bar, BarChart, BarGroup, Chart, Dataset, GraphType, Paragraph},
     Frame,
 };
 
@@ -19,7 +19,7 @@ pub struct StatisticsComponent {
 impl StatisticsComponent {
     pub fn new(db: Database) -> Result<Self> {
         let interval_data = db.get_review_stats_by_interval()?;
-        let daily_data = db.get_daily_review_counts(30)?;
+        let daily_data = db.get_daily_review_counts(7)?; // 改为7天
 
         Ok(Self {
             interval_data,
@@ -109,88 +109,45 @@ impl Component for StatisticsComponent {
             frame.render_widget(msg, layout[0]);
         }
 
-        // Daily Review Count Chart
+        // Daily Review Count Bar Chart (Last 7 Days)
         if !self.daily_data.is_empty() {
-            let data: Vec<(f64, f64)> = self
+            // Prepare bar chart data
+            let bars: Vec<Bar> = self
                 .daily_data
                 .iter()
-                .enumerate()
-                .map(|(idx, (_, count))| (idx as f64, *count as f64))
+                .map(|(date, count)| {
+                    // Extract day (MM-DD format)
+                    let label = if date.len() >= 10 {
+                        &date[5..10] // Extract MM-DD
+                    } else {
+                        date.as_str()
+                    };
+                    Bar::default()
+                        .value(*count as u64)
+                        .label(label.into())
+                        .style(Theme::text_success())
+                        .value_style(Theme::text_accent().add_modifier(ratatui::style::Modifier::BOLD))
+                })
                 .collect();
 
-            let max_count = self
-                .daily_data
-                .iter()
-                .map(|(_, count)| *count)
-                .max()
-                .unwrap_or(10) as f64;
-
-            let y_max = (max_count * 1.2).max(5.0);
-
-            let dataset = Dataset::default()
-                .name("Reviews")
-                .marker(symbols::Marker::Dot)
-                .graph_type(GraphType::Line)
-                .style(Theme::text_success())
-                .data(&data);
-
-            let days_count = self.daily_data.len() as f64;
-
-            let x_labels = if days_count > 0.0 {
-                let first_date = self.daily_data.first().map(|(d, _)| {
-                    if d.len() >= 10 {
-                        &d[5..10]
-                    } else {
-                        d.as_str()
-                    }
-                }).unwrap_or("Start");
-
-                let last_date = self.daily_data.last().map(|(d, _)| {
-                    if d.len() >= 10 {
-                        &d[5..10]
-                    } else {
-                        d.as_str()
-                    }
-                }).unwrap_or("End");
-
-                vec![Span::raw(first_date), Span::raw("..."), Span::raw(last_date)]
-            } else {
-                vec![Span::raw("0"), Span::raw("15"), Span::raw("30")]
-            };
-
-            let chart = Chart::new(vec![dataset])
+            let bar_chart = BarChart::default()
                 .block(
-                    Theme::block_default()
-                        .title(" Daily Review Activity (Last 30 Days) "),
+                    Theme::block_success_with_title(" 📊 Daily Review Activity (Last 7 Days) ")
                 )
-                .x_axis(
-                    Axis::default()
-                        .title("Date")
-                        .style(Theme::text_normal())
-                        .bounds([0.0, days_count.max(1.0)])
-                        .labels(x_labels),
-                )
-                .y_axis(
-                    Axis::default()
-                        .title("Count")
-                        .style(Theme::text_normal())
-                        .bounds([0.0, y_max])
-                        .labels(vec![
-                            Span::raw("0"),
-                            Span::raw(format!("{}", (y_max / 2.0) as i64)),
-                            Span::raw(format!("{}", y_max as i64)),
-                        ]),
-                );
+                .bar_width(9)
+                .bar_gap(2)
+                .bar_style(Theme::text_success())
+                .value_style(Theme::text_normal())
+                .data(BarGroup::default().bars(&bars));
 
-            frame.render_widget(chart, layout[1]);
+            frame.render_widget(bar_chart, layout[1]);
         } else {
             let msg = Paragraph::new(
                 "No daily review data available yet.\nComplete some reviews to see your activity!",
             )
             .alignment(ratatui::layout::Alignment::Center)
             .block(
-                Theme::block_default()
-                    .title(" Daily Review Activity "),
+                Theme::block_success_with_title(" 📊 Daily Review Activity ")
             );
             frame.render_widget(msg, layout[1]);
         }

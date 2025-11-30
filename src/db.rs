@@ -375,9 +375,9 @@ impl Database {
     // Get daily review count for the last N days
     pub fn get_daily_review_counts(&self, days: i64) -> Result<Vec<(String, i64)>> {
         let mut stmt = self.learn_conn.prepare(
-            "SELECT DATE(reviewed_at) as review_date, COUNT(*) as count
+            "SELECT DATE(reviewed_at, 'localtime') as review_date, COUNT(*) as count
              FROM review_history
-             WHERE reviewed_at >= datetime('now', '-' || ?1 || ' days')
+             WHERE DATE(reviewed_at, 'localtime') >= DATE('now', 'localtime', '-' || ?1 || ' days')
              GROUP BY review_date
              ORDER BY review_date ASC"
         )?;
@@ -397,7 +397,7 @@ impl Database {
     pub fn get_today_completed_count(&self) -> Result<i64> {
         let count: i64 = self.learn_conn.query_row(
             "SELECT COUNT(*) FROM review_history
-             WHERE DATE(reviewed_at) = DATE('now')",
+             WHERE DATE(reviewed_at, 'localtime') = DATE('now', 'localtime')",
             [],
             |r| r.get(0)
         )?;
