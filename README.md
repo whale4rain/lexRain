@@ -95,6 +95,10 @@ Rust + ratatui + crossterm + rusqlite + ECDICT
 
 ## 版本历史
 
+- **v2.7** (2025-12-01): Dashboard 界面重设计
+  - 双列布局：统计 + 日历
+  - 添加日历组件（高亮今天）
+  - Emoji 图标优化统计卡片
 - **v2.6** (2025-12-01): 单词本显示增强
   - Review 界面显示当前单词本（带首字母图标）
   - Dashboard 添加单词本统计卡片
