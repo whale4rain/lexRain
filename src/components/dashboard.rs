@@ -115,79 +115,64 @@ impl Component for DashboardComponent {
 
         // === LEFT COLUMN ===
         
-        // Stats card with 2x3 grid
+        // Stats card - clearer labels
         let stats_lines = vec![
             Line::from(vec![
-                Span::styled("📊 ", Style::default().fg(Color::Cyan)),
-                Span::styled("Total Words: ", Style::default().fg(Color::White)),
+                Span::styled("📚 ", Style::default().fg(Color::Cyan)),
+                Span::styled("Learning: ", Style::default().fg(Color::White)),
                 Span::styled(
-                    format!("{}", total),
+                    format!("{} words", total),
                     Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw("   "),
+                Span::raw(" (total in your vocabulary)"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
                 Span::styled("✓ ", Style::default().fg(Color::Green)),
                 Span::styled("Mastered: ", Style::default().fg(Color::White)),
                 Span::styled(
-                    format!("{}", mastered),
+                    format!("{} words", mastered),
                     Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
                 ),
+                Span::raw(" (fully learned)"),
             ]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("⏰ ", Style::default().fg(Color::Yellow)),
-                Span::styled("Due Today: ", Style::default().fg(Color::White)),
+                Span::styled("Due Now: ", Style::default().fg(Color::White)),
                 Span::styled(
-                    format!("{}", due),
+                    format!("{} words", due),
                     Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw("   "),
+                Span::raw(" (need review)"),
+            ]),
+        ];
+        let stats_widget = Paragraph::new(stats_lines)
+            .block(Block::default().title(" 📊 Learning Stats ").borders(Borders::ALL))
+            .style(Style::default().fg(Color::White));
+        frame.render_widget(stats_widget, left_chunks[0]);
+
+        // Today's progress card
+        let daily_goal = self.db.get_daily_goal().unwrap_or(20);
+        let progress_text = vec![
+            Line::from(vec![
                 Span::styled("🎯 ", Style::default().fg(Color::Magenta)),
-                Span::styled("Completed: ", Style::default().fg(Color::White)),
+                Span::styled("Today: ", Style::default().fg(Color::White)),
                 Span::styled(
                     format!("{}", self.today_completed),
                     Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
                 ),
-            ]),
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("📖 ", Style::default().fg(Color::Blue)),
-                Span::styled("Wordbooks: ", Style::default().fg(Color::White)),
+                Span::raw(" / "),
                 Span::styled(
-                    format!("{}", self.wordbook_count),
-                    Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
-                ),
-            ]),
-        ];
-        let stats_widget = Paragraph::new(stats_lines)
-            .block(Block::default().title(" 📈 Statistics ").borders(Borders::ALL))
-            .style(Style::default().fg(Color::White));
-        frame.render_widget(stats_widget, left_chunks[0]);
-
-        // Wordbooks card with icon
-        let wordbook_text = vec![
-            Line::from(vec![
-                Span::styled("📚 ", Style::default().fg(Color::Magenta)),
-                Span::raw("Press "),
-                Span::styled(
-                    "'w'",
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(" to explore "),
-                Span::styled(
-                    format!("{} wordbooks", self.wordbook_count),
+                    format!("{} words reviewed", daily_goal),
                     Style::default().fg(Color::Cyan),
                 ),
             ]),
-            Line::from(vec![
-                Span::raw("   (CET-4/6, TOEFL, IELTS, GRE, etc.)"),
-            ]),
         ];
-        let wordbook_widget = Paragraph::new(wordbook_text)
-            .block(Block::default().title(" 📖 Wordbooks ").borders(Borders::ALL))
+        let progress_widget = Paragraph::new(progress_text)
+            .block(Block::default().title(" 📅 Today's Progress ").borders(Borders::ALL))
             .style(Style::default().fg(Color::White));
-        frame.render_widget(wordbook_widget, left_chunks[1]);
+        frame.render_widget(progress_widget, left_chunks[1]);
 
         // Show completion message or instructions
         if self.show_completion_message {
@@ -373,7 +358,7 @@ impl Component for DashboardComponent {
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(today_widget, right_chunks[1]);
 
-        // Progress bar
+        // Overall learning progress bar
         let progress = if total > 0 {
             (mastered as f64 / total as f64) * 100.0
         } else {
@@ -382,12 +367,12 @@ impl Component for DashboardComponent {
         let gauge = Gauge::default()
             .block(
                 Block::default()
-                    .title(" 📊 Mastery Progress ")
+                    .title(format!(" ✓ Mastered: {} / {} ({:.1}%) ", mastered, total, progress))
                     .borders(Borders::ALL),
             )
             .gauge_style(Style::default().fg(Color::Green))
             .percent(progress as u16)
-            .label(format!("{:.1}%", progress));
+            .label(format!("{} mastered", mastered));
         frame.render_widget(gauge, right_chunks[2]);
     }
 }

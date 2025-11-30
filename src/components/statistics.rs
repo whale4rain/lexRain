@@ -65,7 +65,7 @@ impl Component for StatisticsComponent {
 
             let dataset = Dataset::default()
                 .name("Avg Quality")
-                .marker(symbols::Marker::Braille)
+                .marker(symbols::Marker::Dot)
                 .graph_type(GraphType::Line)
                 .style(Style::new().fg(Color::Cyan))
                 .data(&data);
@@ -131,7 +131,7 @@ impl Component for StatisticsComponent {
 
             let dataset = Dataset::default()
                 .name("Reviews")
-                .marker(symbols::Marker::Braille)
+                .marker(symbols::Marker::Dot)
                 .graph_type(GraphType::Line)
                 .style(Style::new().fg(Color::Green))
                 .data(&data);

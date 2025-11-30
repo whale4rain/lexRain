@@ -29,7 +29,7 @@ fn main() -> Result<()> {
 
     // Initialize TUI
     let mut terminal = tui::init()?;
-    let event_handler = event::EventHandler::new(Duration::from_millis(250));
+    let event_handler = event::EventHandler::new(Duration::from_millis(50));
 
     // Choose architecture version
     if args.v2 {
