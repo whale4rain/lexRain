@@ -68,6 +68,22 @@ impl Database {
             [],
         )?;
 
+        // Create indexes for faster queries (if not exists)
+        // Index on word column for search
+        let _ = dict_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_word ON stardict(word)",
+            [],
+        );
+        
+        // Index on tag for wordbook queries
+        let _ = dict_conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tag ON stardict(tag)",
+            [],
+        );
+        
+        // Note: Can't create index on translation (TEXT with Chinese) as it's too large
+        // But word-based search will be much faster now
+
         Ok(Self { dict_conn, learn_conn })
     }
 
@@ -542,20 +558,50 @@ impl Database {
 
     /// 获取所有可用的单词本（按 tag 分组，返回 tag 和单词数量）
     pub fn get_wordbooks(&self) -> Result<Vec<(String, usize)>> {
+        // 定义主要考试标签的优先级顺序
+        let priority_tags = vec!["GRE", "TOEFL", "IELTS", "考研", "CET-6", "CET-4", "高考", "中考"];
+        
+        let mut wordbook_map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        
+        // 查询所有单词的标签
         let mut stmt = self.dict_conn.prepare(
-            "SELECT tag, COUNT(*) as count
-             FROM stardict
-             WHERE tag IS NOT NULL AND tag != ''
-             AND translation IS NOT NULL
-             GROUP BY tag
-             ORDER BY count DESC"
+            "SELECT tag FROM stardict WHERE tag IS NOT NULL AND tag != '' AND translation IS NOT NULL"
         )?;
-
-        let wordbooks = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
+        
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        
+        for row in rows {
+            let tag_string = row?;
+            // 拆分复合标签 (分隔符: 空格, 逗号, 顿号, 中点)
+            let tags: Vec<&str> = tag_string
+                .split(|c| c == ' ' || c == ',' || c == '、' || c == '·')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            
+            // 为每个标签计数
+            for tag in tags {
+                *wordbook_map.entry(tag.to_string()).or_insert(0) += 1;
+            }
+        }
+        
+        // 转换为 Vec 并按优先级排序
+        let mut wordbooks: Vec<(String, usize)> = wordbook_map.into_iter().collect();
+        
+        wordbooks.sort_by(|a, b| {
+            let a_priority = priority_tags.iter().position(|&t| t == a.0).unwrap_or(999);
+            let b_priority = priority_tags.iter().position(|&t| t == b.0).unwrap_or(999);
+            
+            if a_priority != b_priority {
+                a_priority.cmp(&b_priority)
+            } else if a_priority == 999 && b_priority == 999 {
+                // 对于不在优先级列表中的标签，按数量降序排序
+                b.1.cmp(&a.1)
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        });
+        
         Ok(wordbooks)
     }
 
@@ -567,10 +613,24 @@ impl Database {
             "ORDER BY oxford DESC, collins DESC, bnc ASC, frq ASC"
         };
 
+        // 使用精确标签匹配：标签必须是独立的词（被分隔符包围或在开头/结尾）
+        // SQLite 正则表达式：(^|[· ,、])tag($|[· ,、])
         let query = format!(
             "SELECT id, word, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange
              FROM stardict
-             WHERE tag LIKE '%' || ?1 || '%'
+             WHERE (tag = ?1 
+                    OR tag LIKE ?1 || ' %' 
+                    OR tag LIKE '% ' || ?1 
+                    OR tag LIKE '% ' || ?1 || ' %'
+                    OR tag LIKE ?1 || '·%'
+                    OR tag LIKE '%·' || ?1
+                    OR tag LIKE '%·' || ?1 || '·%'
+                    OR tag LIKE ?1 || ',%'
+                    OR tag LIKE '%,' || ?1
+                    OR tag LIKE '%,' || ?1 || ',%'
+                    OR tag LIKE ?1 || '、%'
+                    OR tag LIKE '%、' || ?1
+                    OR tag LIKE '%、' || ?1 || '、%')
              AND translation IS NOT NULL
              {}
              LIMIT ?2",
@@ -674,14 +734,5 @@ impl Database {
         .collect::<Result<Vec<_>, _>>()?;
 
         Ok(dates)
-    }
-
-    pub fn get_checkin_status(&self, date: &str) -> Result<Option<(i64, i64, bool)>> {
-        let result = self.learn_conn.query_row(
-            "SELECT completed_count, goal, achieved FROM daily_checkin WHERE date = ?1",
-            params![date],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get::<_, i32>(2)? == 1)),
-        ).optional()?;
-        Ok(result)
     }
 }

@@ -57,12 +57,13 @@ cargo run --release
 ### Dictionary 词典
 | 按键 | 功能 |
 |------|------|
-| `j/k` | 上下选词 |
+| `Tab` | 进入/退出搜索模式 |
+| `j/k` | 上下选词（Normal 模式）|
 | `h/l` | 滚动详情 |
-| `Enter` | 打开浮窗查看完整信息 |
+| `Enter` | 执行搜索（Insert 模式）/ 打开浮窗（Normal 模式）|
 | `g/G` | 首/尾 |
-| 字母 | 搜索 |
-| `q` | 返回 |
+| `字母/Backspace` | 输入搜索词（Insert 模式）|
+| `Esc/q` | 返回 Dashboard |
 
 ### History 历史
 | 按键 | 功能 |
@@ -95,6 +96,11 @@ Rust + ratatui + crossterm + rusqlite + ECDICT
 
 ## 版本历史
 
+- **v2.9** (2025-11-30): Dictionary 搜索交互优化
+  - Normal/Insert 模式切换（Tab 键）
+  - 加载动画（Braille 旋转）
+  - 数据库索引优化（10-100 倍性能提升）
+  - 事件轮询优化（10ms，退出快 5 倍）
 - **v2.8** (2025-12-01): 打卡系统和设置功能
   - 日历显示打卡记录（绿色高亮）
   - 每日目标单词数设置

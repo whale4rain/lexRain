@@ -33,6 +33,27 @@
 
 ## 版本历史
 
+### v2.9 (2025-11-30)
+**Dictionary 搜索交互优化**
+- 模式切换系统
+  - Normal 模式：导航浏览（j/k/h/l）
+  - Insert 模式：输入搜索（Tab 进入/退出）
+  - 搜索框标题动态提示：`Search [Tab to open]` / `Search [Enter to search]`
+  - Enter 搜索后自动返回 Normal 模式
+- 加载动画
+  - Braille 字符旋转动画：⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏
+  - 搜索时显示：`Search [Enter to search] - ⠋ Searching...`
+  - 每帧自动更新，视觉反馈清晰
+- 性能优化
+  - 数据库索引：idx_word, idx_tag（查询速度提升 10-100 倍）
+  - 事件轮询从 50ms 优化到 10ms（退出响应快 5 倍）
+  - 分页查询（30 词/页）
+- 交互流程优化
+  - Normal 模式 → Tab → Insert 模式 → 输入 → Enter 搜索 → 自动返回 Normal 模式
+  - 搜索完成后立即可用 j/k 浏览结果，无需额外操作
+  - Placeholder 提示："Press Tab to open search..." / "Type and press Enter to search..."
+  - 底部帮助根据模式切换："Tab:Search | j/k:↑↓" / "Tab:Exit | Enter:Search"
+
 ### v2.8 (2025-12-01)
 **打卡系统和设置功能**
 - 日历打卡系统

@@ -16,7 +16,13 @@ use ratatui::{
 };
 use std::collections::HashMap;
 
-const LIST_LIMIT: usize = 100;
+#[derive(Debug, PartialEq)]
+enum Mode {
+    Normal,  // Navigation mode (j/k works)
+    Insert,  // Input mode (typing)
+}
+
+const LIST_LIMIT: usize = 30;
 
 /// Parse exchange field into a readable format
 fn parse_exchange(exchange: &str) -> HashMap<&str, String> {
@@ -86,6 +92,9 @@ pub struct DictionaryComponent {
     detail_scroll: u16, // Scroll position for detail view
     show_popup: bool,   // Whether to show popup
     popup: Popup,       // Popup component
+    mode: Mode,         // Current input mode
+    searching: bool,    // Whether currently searching
+    loading_frame: usize, // Loading animation frame
 }
 
 impl DictionaryComponent {
@@ -95,23 +104,30 @@ impl DictionaryComponent {
         table_state.select(Some(0));
         Ok(Self {
             db,
-            search_input: SearchInput::new().with_placeholder("Type to search...".to_string()),
+            search_input: SearchInput::new().with_placeholder("Press 'i' to search...".to_string()),
             word_list,
             selected_index: 0,
             table_state,
             detail_scroll: 0,
             show_popup: false,
             popup: Popup::new("单词详情".to_string()),
+            mode: Mode::Normal,
+            searching: false,
+            loading_frame: 0,
         })
     }
 
     fn update_search(&mut self) -> Result<()> {
+        self.searching = true;
+        
         if self.search_input.value.is_empty() {
             self.word_list = self.db.get_all_words()?;
         } else {
             self.word_list = self.db.search_words(&self.search_input.value)?;
         }
         self.selected_index = 0;
+        
+        self.searching = false;
         Ok(())
     }
 
@@ -353,6 +369,96 @@ impl DictionaryComponent {
 
         lines
     }
+
+    fn handle_normal_mode(&mut self, key: KeyEvent) -> Result<Action> {
+        match key.code {
+            KeyCode::Char('q') => Ok(Action::NavigateTo(Screen::Dashboard)),
+            KeyCode::Esc => Ok(Action::NavigateTo(Screen::Dashboard)),
+            KeyCode::Tab | KeyCode::Char('i') => {
+                // Enter insert mode
+                self.mode = Mode::Insert;
+                Ok(Action::None)
+            }
+            KeyCode::Enter => {
+                // Open popup for selected word
+                if !self.word_list.is_empty() {
+                    self.show_popup = true;
+                    self.popup.reset_scroll();
+                }
+                Ok(Action::None)
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                self.select_previous();
+                Ok(Action::None)
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                self.select_next();
+                Ok(Action::None)
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.detail_scroll = self.detail_scroll.saturating_sub(1);
+                Ok(Action::None)
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.detail_scroll = self.detail_scroll.saturating_add(1);
+                Ok(Action::None)
+            }
+            KeyCode::Home | KeyCode::Char('g') => {
+                self.select_first();
+                Ok(Action::None)
+            }
+            KeyCode::End | KeyCode::Char('G') => {
+                self.select_last();
+                Ok(Action::None)
+            }
+            KeyCode::PageUp => {
+                for _ in 0..10 {
+                    self.select_previous();
+                }
+                Ok(Action::None)
+            }
+            KeyCode::PageDown => {
+                for _ in 0..10 {
+                    self.select_next();
+                }
+                Ok(Action::None)
+            }
+            _ => Ok(Action::None),
+        }
+    }
+    
+    fn handle_insert_mode(&mut self, key: KeyEvent) -> Result<Action> {
+        match key.code {
+            KeyCode::Tab | KeyCode::Esc => {
+                // Exit insert mode and clear search if empty
+                self.mode = Mode::Normal;
+                if self.search_input.value.is_empty() {
+                    self.word_list = self.db.get_all_words()?;
+                    self.selected_index = 0;
+                }
+                Ok(Action::None)
+            }
+            KeyCode::Enter => {
+                // Perform search and exit to normal mode
+                if !self.search_input.value.is_empty() {
+                    self.update_search()?;
+                    self.mode = Mode::Normal;
+                }
+                Ok(Action::None)
+            }
+            KeyCode::Char(_c) => {
+                // Just update input, don't search immediately
+                self.search_input.handle_key(key);
+                Ok(Action::None)
+            }
+            KeyCode::Backspace => {
+                // Just update input, don't search immediately
+                self.search_input.handle_key(key);
+                Ok(Action::None)
+            }
+            _ => Ok(Action::None),
+        }
+    }
 }
 
 impl Component for DictionaryComponent {
@@ -376,67 +482,20 @@ impl Component for DictionaryComponent {
                 _ => Ok(Action::None),
             }
         } else {
-            // 正常模式的键位处理
-            match key.code {
-                KeyCode::Esc | KeyCode::Char('q') => Ok(Action::NavigateTo(Screen::Dashboard)),
-                KeyCode::Enter => {
-                    // 打开浮窗显示完整信息
-                    self.show_popup = true;
-                    self.popup.reset_scroll();
-                    Ok(Action::None)
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    self.select_previous();
-                    Ok(Action::None)
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    self.select_next();
-                    Ok(Action::None)
-                }
-                KeyCode::Left | KeyCode::Char('h') => {
-                    self.detail_scroll = self.detail_scroll.saturating_sub(1);
-                    Ok(Action::None)
-                }
-                KeyCode::Right | KeyCode::Char('l') => {
-                    self.detail_scroll = self.detail_scroll.saturating_add(1);
-                    Ok(Action::None)
-                }
-                KeyCode::Home | KeyCode::Char('g') => {
-                    self.select_first();
-                    Ok(Action::None)
-                }
-                KeyCode::End | KeyCode::Char('G') => {
-                    self.select_last();
-                    Ok(Action::None)
-                }
-                KeyCode::PageUp => {
-                    for _ in 0..10 {
-                        self.select_previous();
-                    }
-                    Ok(Action::None)
-                }
-                KeyCode::PageDown => {
-                    for _ in 0..10 {
-                        self.select_next();
-                    }
-                    Ok(Action::None)
-                }
-                KeyCode::Char(_c) => {
-                    self.search_input.handle_key(key);
-                    self.update_search()?;
-                    Ok(Action::None)
-                }
-                KeyCode::Backspace => {
-                    self.search_input.handle_key(key);
-                    self.update_search()?;
-                    Ok(Action::None)
-                }
-                _ => Ok(Action::None),
+            // Normal mode vs Insert mode
+            match self.mode {
+                Mode::Normal => self.handle_normal_mode(key),
+                Mode::Insert => self.handle_insert_mode(key),
             }
         }
     }
 
     fn view(&mut self, frame: &mut Frame, area: Rect) {
+        // Update loading animation frame
+        if self.searching {
+            self.loading_frame = self.loading_frame.wrapping_add(1);
+        }
+        
         frame.render_widget(Block::default().borders(Borders::ALL), area);
 
         let layout = Layout::default()
@@ -449,8 +508,46 @@ impl Component for DictionaryComponent {
             .margin(1)
             .split(area);
 
-        // Search input
-        self.search_input.render(frame, layout[0]);
+        // Search input with mode indicator
+        let mode_indicator = match self.mode {
+            Mode::Normal => "[Tab to open]",
+            Mode::Insert => "[Enter to search]",
+        };
+        
+        let loading_animation = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+        let search_title = if self.searching {
+            let frame = loading_animation[self.loading_frame % loading_animation.len()];
+            format!(" Search {} - {} Searching... ", mode_indicator, frame)
+        } else {
+            format!(" Search {} ", mode_indicator)
+        };
+        
+        let search_block = Block::default()
+            .borders(Borders::ALL)
+            .title(search_title)
+            .border_style(if self.mode == Mode::Insert {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Cyan)
+            });
+        
+        let search_widget = Paragraph::new(if self.search_input.value.is_empty() {
+            if self.mode == Mode::Insert {
+                "Type and press Enter to search..."
+            } else {
+                "Press Tab to open search..."
+            }
+        } else {
+            &self.search_input.value
+        })
+        .block(search_block)
+        .style(if self.search_input.value.is_empty() {
+            Style::default().fg(Color::DarkGray)
+        } else {
+            Style::default().fg(Color::Yellow)
+        });
+        
+        frame.render_widget(search_widget, layout[0]);
 
         // Word table with scrollbar
         let page = self.selected_index / LIST_LIMIT;
@@ -527,13 +624,19 @@ impl Component for DictionaryComponent {
                 .title(format!(" Dictionary ({} words) ", items_len))
                 .title_bottom(
                     if items_len > 0 {
+                        let help = match self.mode {
+                            Mode::Normal => "Tab:Search | j/k:↑↓ | Enter:Detail | q:Quit",
+                            Mode::Insert => "Tab:Exit | Enter:Search | Type to input",
+                        };
                         Line::from(vec![
-                            Span::raw("|"),
+                            Span::raw("| "),
                             Span::styled(
-                                format!(" {}/{} ", self.selected_index + 1, items_len),
+                                format!("{}/{}", self.selected_index + 1, items_len),
                                 Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
                             ),
-                            Span::raw("|"),
+                            Span::raw(" | "),
+                            Span::styled(help, Style::default().fg(Color::DarkGray)),
+                            Span::raw(" |"),
                         ])
                         .right_aligned()
                     } else {

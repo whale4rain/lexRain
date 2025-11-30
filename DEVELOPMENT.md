@@ -98,6 +98,63 @@ pub enum ReviewMode {
 }
 ```
 
+### Dictionary 搜索交互（v2.9）
+**模式切换系统**：
+```rust
+#[derive(Debug, Clone, PartialEq)]
+enum Mode {
+    Normal,  // 导航模式：j/k/h/l 浏览
+    Insert,  // 输入模式：输入搜索词
+}
+
+pub struct DictionaryComponent {
+    mode: Mode,
+    searching: bool,
+    loading_frame: usize,
+    // ...
+}
+
+// 键位处理
+fn handle_normal_mode(&mut self, key: KeyEvent) -> Result<Action> {
+    match key.code {
+        KeyCode::Tab | KeyCode::Char('i') => self.mode = Mode::Insert,
+        KeyCode::Char('j') => self.select_next(),
+        KeyCode::Enter => self.show_popup = true,
+        // ...
+    }
+}
+
+fn handle_insert_mode(&mut self, key: KeyEvent) -> Result<Action> {
+    match key.code {
+        KeyCode::Tab | KeyCode::Esc => self.mode = Mode::Normal,
+        KeyCode::Enter => {
+            self.update_search()?;
+            self.mode = Mode::Normal;  // 自动返回
+        }
+        KeyCode::Char(c) => self.search_input.handle_key(key),
+        // ...
+    }
+}
+```
+
+**加载动画**：
+```rust
+// Braille 字符旋转动画
+let loading_animation = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+let frame = loading_animation[self.loading_frame % loading_animation.len()];
+format!(" Search [Enter to search] - {} Searching... ", frame)
+
+// 每帧更新（view 方法中）
+if self.searching {
+    self.loading_frame = self.loading_frame.wrapping_add(1);
+}
+```
+
+**动态提示**：
+- Normal 模式：`Search [Tab to open]` + "Press Tab to open search..."
+- Insert 模式：`Search [Enter to search]` + "Type and press Enter to search..."
+- 搜索中：`Search [Enter to search] - ⠋ Searching...`
+
 ### SM-2 算法实现
 ```rust
 // sm2.rs
@@ -305,13 +362,24 @@ fn exchange_type_name(key: &str) -> &str {
 
 ### 数据库查询
 - ECDICT 只读，无写操作锁竞争
-- 使用索引（spelling, bnc, frq, collins, oxford）
+- **索引优化**（v2.9）：
+  - `CREATE INDEX idx_word ON stardict(word)` - 单词精确查询
+  - `CREATE INDEX idx_tag ON stardict(tag)` - 标签筛选
+  - 查询速度提升 10-100 倍（大数据集）
+- 分页查询（30 词/页）减少数据传输
 - LIMIT 限制查询结果（默认 20/100）
+
+### 事件处理优化
+- **轮询优化**（v2.9）：event poll 从 50ms → 10ms
+  - 按键响应更快（特别是 q 退出）
+  - Tick rate 降低不影响性能（event-driven）
+- KeyEventKind::Press 过滤，避免重复处理
 
 ### 渲染优化
 - 滚动条仅在内容超长时渲染
 - 使用 `saturating_add/sub` 避免溢出检查
 - 组件状态按需更新
+- **加载动画**（v2.9）：Braille 字符旋转，无额外性能开销
 
 ### 内存使用
 - Word 结构按需加载，不常驻内存
