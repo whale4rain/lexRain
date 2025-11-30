@@ -14,8 +14,68 @@ use ratatui::{
     },
     Frame,
 };
+use std::collections::HashMap;
 
 const LIST_LIMIT: usize = 100;
+
+/// Parse exchange field into a readable format
+fn parse_exchange(exchange: &str) -> HashMap<&str, String> {
+    let mut result = HashMap::new();
+    for part in exchange.split('/') {
+        if let Some((key, value)) = part.split_once(':') {
+            result.insert(key, value.to_string());
+        }
+    }
+    result
+}
+
+/// Get exchange type description
+fn exchange_type_name(key: &str) -> &str {
+    match key {
+        "p" => "过去式",
+        "d" => "过去分词",
+        "i" => "现在分词",
+        "3" => "第三人称单数",
+        "r" => "比较级",
+        "t" => "最高级",
+        "s" => "复数",
+        "0" => "原型",
+        "1" => "原型变换",
+        _ => key,
+    }
+}
+
+/// Parse pos field: "v:100/n:50" -> "动词/名词"
+fn parse_pos(pos: &str) -> String {
+    let parts: Vec<&str> = pos.split('/').collect();
+    let mut result = Vec::new();
+    
+    for part in parts {
+        if let Some((pos_code, _weight)) = part.split_once(':') {
+            let pos_name = match pos_code {
+                "n" => "n. 名词",
+                "v" => "v. 动词",
+                "adj" | "a" | "j" => "adj. 形容词",
+                "adv" | "ad" | "r" => "adv. 副词",
+                "prep" => "prep. 介词",
+                "conj" | "c" => "conj. 连词",
+                "pron" => "pron. 代词",
+                "int" | "i" => "interj. 感叹词",
+                "art" => "art. 冠词",
+                "num" => "num. 数词",
+                "aux" => "aux. 助动词",
+                _ => continue,
+            };
+            result.push(pos_name);
+        }
+    }
+    
+    if result.is_empty() {
+        String::new()
+    } else {
+        result.join(" / ")
+    }
+}
 
 pub struct DictionaryComponent {
     db: Database,
@@ -23,6 +83,7 @@ pub struct DictionaryComponent {
     word_list: Vec<(Word, Option<LearningLog>)>,
     selected_index: usize,
     table_state: TableState,
+    detail_scroll: u16, // Scroll position for detail view
 }
 
 impl DictionaryComponent {
@@ -36,6 +97,7 @@ impl DictionaryComponent {
             word_list,
             selected_index: 0,
             table_state,
+            detail_scroll: 0,
         })
     }
 
@@ -53,6 +115,7 @@ impl DictionaryComponent {
         if !self.word_list.is_empty() {
             self.selected_index = (self.selected_index + 1).min(self.word_list.len() - 1);
             self.table_state.select(Some(self.selected_index % LIST_LIMIT));
+            self.detail_scroll = 0;
         }
     }
 
@@ -60,6 +123,7 @@ impl DictionaryComponent {
         if !self.word_list.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
             self.table_state.select(Some(self.selected_index % LIST_LIMIT));
+            self.detail_scroll = 0;
         }
     }
 
@@ -67,6 +131,7 @@ impl DictionaryComponent {
         if !self.word_list.is_empty() {
             self.selected_index = 0;
             self.table_state.select(Some(0));
+            self.detail_scroll = 0;
         }
     }
 
@@ -74,6 +139,7 @@ impl DictionaryComponent {
         if !self.word_list.is_empty() {
             self.selected_index = self.word_list.len() - 1;
             self.table_state.select(Some(self.selected_index % LIST_LIMIT));
+            self.detail_scroll = 0;
         }
     }
 }
@@ -88,6 +154,14 @@ impl Component for DictionaryComponent {
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 self.select_next();
+                Ok(Action::None)
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.detail_scroll = self.detail_scroll.saturating_sub(1);
+                Ok(Action::None)
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.detail_scroll = self.detail_scroll.saturating_add(1);
                 Ok(Action::None)
             }
             KeyCode::Home | KeyCode::Char('g') => {
@@ -132,7 +206,7 @@ impl Component for DictionaryComponent {
             .constraints([
                 Constraint::Length(3),  // Search input
                 Constraint::Min(10),    // Word table
-                Constraint::Length(8),  // Selected word detail
+                Constraint::Length(20), // Selected word detail (increased from 8 to 20)
             ])
             .margin(1)
             .split(area);
@@ -247,51 +321,190 @@ impl Component for DictionaryComponent {
 
         // Selected word detail
         if let Some((word, log)) = self.word_list.get(self.selected_index) {
-            let mut detail_lines = vec![
-                Line::from(vec![
-                    Span::styled("Word: ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    Span::styled(&word.spelling, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                ]),
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled("Definition: ", Style::default().fg(Color::Yellow)),
-                    Span::raw(&word.definition),
-                ]),
+            let mut detail_lines = vec![];
+            
+            // Word + Phonetic
+            let mut word_line_spans = vec![
+                Span::styled(
+                    &word.spelling,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                ),
             ];
-
-            if let Some(translation) = &word.translation {
-                detail_lines.push(Line::from(""));
-                detail_lines.push(Line::from(vec![
-                    Span::styled("中文: ", Style::default().fg(Color::Yellow)),
-                    Span::raw(translation),
-                ]));
+            if let Some(phonetic) = &word.phonetic {
+                word_line_spans.push(Span::raw("  "));
+                word_line_spans.push(Span::styled(
+                    format!("[ {} ]", phonetic),
+                    Style::default().fg(Color::DarkGray),
+                ));
             }
-
-            // Show ECDICT metadata
-            let mut meta_parts = Vec::new();
-            if word.collins > 0 {
-                meta_parts.push(format!("Collins {}", "★".repeat(word.collins as usize)));
-            }
-            if word.oxford {
-                meta_parts.push("Oxford 3000".to_string());
-            }
-            if let Some(tag) = &word.tag {
-                if !tag.is_empty() {
-                    meta_parts.push(tag.replace(" ", ", ").to_uppercase());
+            detail_lines.push(Line::from(word_line_spans));
+            detail_lines.push(Line::from(""));
+            
+            // POS + Collins + Oxford
+            let mut meta_spans = vec![];
+            if let Some(pos) = &word.pos {
+                if !pos.is_empty() {
+                    let pos_display = parse_pos(pos);
+                    if !pos_display.is_empty() {
+                        meta_spans.push(Span::styled(
+                            pos_display,
+                            Style::default().fg(Color::Yellow),
+                        ));
+                    }
                 }
             }
-            if !meta_parts.is_empty() {
+            if word.collins > 0 {
+                if !meta_spans.is_empty() {
+                    meta_spans.push(Span::raw("  |  "));
+                }
+                meta_spans.push(Span::styled(
+                    format!("柯林斯 {}", "★".repeat(word.collins as usize)),
+                    Style::default().fg(Color::Magenta),
+                ));
+            }
+            if word.oxford {
+                if !meta_spans.is_empty() {
+                    meta_spans.push(Span::raw("  |  "));
+                }
+                meta_spans.push(Span::styled(
+                    "牛津3000",
+                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                ));
+            }
+            if !meta_spans.is_empty() {
+                detail_lines.push(Line::from(meta_spans));
                 detail_lines.push(Line::from(""));
+            }
+            
+            // Tags (考试标签)
+            if let Some(tag) = &word.tag {
+                if !tag.is_empty() {
+                    let tags: Vec<&str> = tag.split_whitespace().collect();
+                    let tag_display: Vec<String> = tags.iter().map(|t| {
+                        match *t {
+                            "zk" => "中考",
+                            "gk" => "高考",
+                            "cet4" => "CET-4",
+                            "cet6" => "CET-6",
+                            "ky" => "考研",
+                            "toefl" => "TOEFL",
+                            "ielts" => "IELTS",
+                            "gre" => "GRE",
+                            _ => t,
+                        }.to_string()
+                    }).collect();
+                    detail_lines.push(Line::from(vec![
+                        Span::styled(
+                            "考试: ",
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(
+                            tag_display.join(" · "),
+                            Style::default().fg(Color::Cyan),
+                        ),
+                    ]));
+                    detail_lines.push(Line::from(""));
+                }
+            }
+            
+            // Chinese Translation
+            if let Some(translation) = &word.translation {
+                detail_lines.push(Line::from(Span::styled(
+                    "━━━ 中文释义 ━━━",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )));
+                for line in translation.lines() {
+                    if !line.trim().is_empty() {
+                        detail_lines.push(Line::from(format!("  {}", line)));
+                    }
+                }
+                detail_lines.push(Line::from(""));
+            }
+            
+            // English Definition
+            detail_lines.push(Line::from(Span::styled(
+                "━━━ English Definition ━━━",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )));
+            for line in word.definition.lines() {
+                if !line.trim().is_empty() {
+                    detail_lines.push(Line::from(format!("  {}", line)));
+                }
+            }
+            detail_lines.push(Line::from(""));
+            
+            // Exchange (词形变化)
+            if let Some(exchange) = &word.exchange {
+                if !exchange.is_empty() {
+                    detail_lines.push(Line::from(Span::styled(
+                        "━━━ 词形变化 ━━━",
+                        Style::default()
+                            .fg(Color::Magenta)
+                            .add_modifier(Modifier::BOLD),
+                    )));
+                    
+                    let exchange_map = parse_exchange(exchange);
+                    let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
+                    
+                    for key in &order {
+                        if let Some(value) = exchange_map.get(*key) {
+                            detail_lines.push(Line::from(vec![
+                                Span::styled(
+                                    format!("  {} ", exchange_type_name(key)),
+                                    Style::default().fg(Color::DarkGray),
+                                ),
+                                Span::styled(
+                                    value.clone(),
+                                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                ),
+                            ]));
+                        }
+                    }
+                    detail_lines.push(Line::from(""));
+                }
+            }
+            
+            // Frequency (词频)
+            let mut freq_info = vec![];
+            if let Some(bnc) = word.bnc {
+                freq_info.push(format!("BNC: {}", bnc));
+            }
+            if let Some(frq) = word.frq {
+                freq_info.push(format!("当代: {}", frq));
+            }
+            if !freq_info.is_empty() {
                 detail_lines.push(Line::from(vec![
-                    Span::styled("Tags: ", Style::default().fg(Color::Magenta)),
-                    Span::styled(meta_parts.join(" | "), Style::default().fg(Color::Cyan)),
+                    Span::styled(
+                        "词频: ",
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(
+                        freq_info.join(" | "),
+                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                    ),
                 ]));
+                detail_lines.push(Line::from(""));
             }
 
+            // Learning status
             if let Some(log) = log {
-                detail_lines.push(Line::from(""));
+                detail_lines.push(Line::from(Span::styled(
+                    "━━━ 学习状态 ━━━",
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                )));
                 detail_lines.push(Line::from(vec![
-                    Span::styled("Learning: ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        "状态: ",
+                        Style::default().fg(Color::DarkGray),
+                    ),
                     Span::styled(
                         format!("{:?}", log.status),
                         Style::default().fg(match log.status {
@@ -300,23 +513,42 @@ impl Component for DictionaryComponent {
                             LearningStatus::Mastered => Color::Green,
                         }),
                     ),
-                    Span::styled(" | ", Style::default().fg(Color::DarkGray)),
+                ]));
+                detail_lines.push(Line::from(vec![
                     Span::styled(
-                        format!("Rep: {} | Interval: {} days | EF: {:.2}", log.repetition, log.interval, log.e_factor),
+                        format!("复习次数: {} | 间隔: {} 天 | 记忆因子: {:.2}", 
+                            log.repetition, log.interval, log.e_factor),
                         Style::default().fg(Color::DarkGray),
                     ),
                 ]));
             }
 
+            let detail_content_height = detail_lines.len() as u16;
             let detail = Paragraph::new(detail_lines)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
-                        .title(" Detail ")
+                        .title(" Detail (h/l: scroll) ")
                         .border_style(Style::default().fg(Color::Cyan)),
                 )
-                .wrap(Wrap { trim: true });
+                .wrap(Wrap { trim: true })
+                .scroll((self.detail_scroll, 0));
             frame.render_widget(detail, layout[2]);
+            
+            // Detail scrollbar
+            if detail_content_height > layout[2].height {
+                frame.render_stateful_widget(
+                    Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                        .begin_symbol(Some("↑"))
+                        .end_symbol(Some("↓")),
+                    layout[2].inner(Margin {
+                        vertical: 1,
+                        horizontal: 0,
+                    }),
+                    &mut ScrollbarState::new(detail_content_height as usize)
+                        .position(self.detail_scroll as usize),
+                );
+            }
         }
     }
 }

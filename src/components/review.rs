@@ -79,6 +79,12 @@ pub enum ReviewState {
     Answer,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActivePanel {
+    Definition,
+    Exchange,
+}
+
 pub struct ReviewComponent {
     db: Database,
     review_queue: Vec<(Word, LearningLog)>,
@@ -87,6 +93,8 @@ pub struct ReviewComponent {
     total_count: usize,
     completed_count: usize,
     scroll: u16, // Scroll position for definition text
+    exchange_scroll: u16, // Scroll position for exchange panel
+    active_panel: ActivePanel, // Which panel is currently focused
 }
 
 impl ReviewComponent {
@@ -99,6 +107,8 @@ impl ReviewComponent {
             total_count: 0,
             completed_count: 0,
             scroll: 0,
+            exchange_scroll: 0,
+            active_panel: ActivePanel::Definition,
         }
     }
 
@@ -123,11 +133,15 @@ impl ReviewComponent {
         self.current_item = self.review_queue.pop();
         self.state = ReviewState::Question;
         self.scroll = 0; // Reset scroll for new card
+        self.exchange_scroll = 0;
+        self.active_panel = ActivePanel::Definition;
     }
 
     fn show_answer(&mut self) {
         self.state = ReviewState::Answer;
         self.scroll = 0; // Reset scroll when showing answer
+        self.exchange_scroll = 0;
+        self.active_panel = ActivePanel::Definition;
     }
 
     fn submit_review(&mut self, quality: u8) -> Result<()> {
@@ -167,11 +181,25 @@ impl Component for ReviewComponent {
             ReviewState::Answer => match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => Ok(Action::NavigateTo(Screen::Dashboard)),
                 KeyCode::Char('j') | KeyCode::Down => {
-                    self.scroll = self.scroll.saturating_add(1);
+                    match self.active_panel {
+                        ActivePanel::Definition => self.scroll = self.scroll.saturating_add(1),
+                        ActivePanel::Exchange => self.exchange_scroll = self.exchange_scroll.saturating_add(1),
+                    }
                     Ok(Action::None)
                 }
                 KeyCode::Char('k') | KeyCode::Up => {
-                    self.scroll = self.scroll.saturating_sub(1);
+                    match self.active_panel {
+                        ActivePanel::Definition => self.scroll = self.scroll.saturating_sub(1),
+                        ActivePanel::Exchange => self.exchange_scroll = self.exchange_scroll.saturating_sub(1),
+                    }
+                    Ok(Action::None)
+                }
+                KeyCode::Char('h') | KeyCode::Left => {
+                    self.active_panel = ActivePanel::Definition;
+                    Ok(Action::None)
+                }
+                KeyCode::Char('l') | KeyCode::Right | KeyCode::Tab => {
+                    self.active_panel = ActivePanel::Exchange;
                     Ok(Action::None)
                 }
                 KeyCode::Char('1') => {
@@ -403,11 +431,21 @@ impl Component for ReviewComponent {
                     }
 
                     let left_content_height = left_lines.len() as u16;
+                    let left_title = if self.active_panel == ActivePanel::Definition {
+                        " 释义 (j/k: scroll, l/→: 切换) [FOCUSED] "
+                    } else {
+                        " 释义 (h/←: 切换) "
+                    };
+                    let left_border_style = if self.active_panel == ActivePanel::Definition {
+                        Style::default().fg(Color::Cyan)
+                    } else {
+                        Style::default()
+                    };
                     let left_text = Paragraph::new(left_lines)
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
                         .scroll((self.scroll, 0))
-                        .block(Block::default().borders(Borders::ALL).title(" 释义 (j/k: scroll) "));
+                        .block(Block::default().borders(Borders::ALL).title(left_title).border_style(left_border_style));
                     frame.render_widget(left_text, def_layout[0]);
 
                     // Left scrollbar
@@ -467,11 +505,38 @@ impl Component for ReviewComponent {
                         )));
                     }
 
+                    let right_content_height = right_lines.len() as u16;
+                    let right_title = if self.active_panel == ActivePanel::Exchange {
+                        " 词形变化 (j/k: scroll, h/←: 切换) [FOCUSED] "
+                    } else {
+                        " 词形变化 (l/→/Tab: 切换) "
+                    };
+                    let right_border_style = if self.active_panel == ActivePanel::Exchange {
+                        Style::default().fg(Color::Magenta)
+                    } else {
+                        Style::default()
+                    };
                     let right_text = Paragraph::new(right_lines)
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
-                        .block(Block::default().borders(Borders::ALL));
+                        .scroll((self.exchange_scroll, 0))
+                        .block(Block::default().borders(Borders::ALL).title(right_title).border_style(right_border_style));
                     frame.render_widget(right_text, def_layout[1]);
+
+                    // Right scrollbar
+                    if right_content_height > def_layout[1].height {
+                        frame.render_stateful_widget(
+                            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                                .begin_symbol(Some("↑"))
+                                .end_symbol(Some("↓")),
+                            def_layout[1].inner(Margin {
+                                vertical: 1,
+                                horizontal: 0,
+                            }),
+                            &mut ScrollbarState::new(right_content_height as usize)
+                                .position(self.exchange_scroll as usize),
+                        );
+                    }
                 }
             }
         } else {

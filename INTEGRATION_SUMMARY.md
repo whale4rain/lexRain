@@ -44,11 +44,16 @@
 #### ReviewComponent
 - ✅ 显示 ECDICT 的 `translation` 字段
 - ✅ 保持原有复习流程
+- ✅ **v2.1**: 添加滚动功能 (j/k)
+- ✅ **v2.2**: 添加 ECDICT 元数据显示 (Exchange, Collins, Oxford, Tags)
+- ✅ **v2.2.1**: 优化布局为左右分栏 (70/30)，词性解析为中文
+- ✅ **v2.3**: 词形变化面板添加独立滚动，h/l/Tab 切换焦点
 
 #### DictionaryComponent  
-- ✅ 显示柯林斯星级（⭐ × N）
+- ✅ 显示柯林斯星级（★ × N）
 - ✅ 显示牛津3000标记
 - ✅ 显示考试标签（CET4/CET6/TOEFL/IELTS/GRE）
+- ✅ **v2.3**: 详情面板全面增强，显示所有 ECDICT 元数据，支持滚动 (h/l)
 - ✅ 显示学习状态和 SM2 参数
 
 #### HistoryComponent
@@ -275,6 +280,62 @@ lexrain_progress.db (读写)
 
 ---
 
+### v2.3 - 面板滚动增强 (2025-11-30)
+
+#### Review 组件
+- ✅ **双面板独立滚动**: 释义面板和词形变化面板可以独立滚动
+- ✅ **焦点切换系统**: 使用 `h`/`l` 或 `←`/`→` 或 `Tab` 在两个面板之间切换
+- ✅ **视觉反馈**: 激活面板用不同颜色边框（青色/品红）和 `[FOCUSED]` 标记指示
+- ✅ **独立滚动条**: 每个面板独立显示滚动条
+- ✅ **智能重置**: 切换单词时重置所有滚动位置和焦点
+
+#### Dictionary 组件
+- ✅ **详情面板增强**: 高度从 8 行增加到 20 行
+- ✅ **全面元数据显示**: 
+  - 单词 + 音标
+  - 词性（解析为中文）
+  - 柯林斯星级
+  - 牛津 3000 标记
+  - 考试标签（中文）
+  - 中文释义（完整）
+  - 英文定义（完整）
+  - 词形变化（所有形式）
+  - 词频信息（BNC + 当代）
+  - 学习状态
+- ✅ **滚动支持**: 使用 `h`/`l` 或 `←`/`→` 上下滚动详情面板
+- ✅ **自动滚动条**: 内容超长时自动显示
+- ✅ **智能重置**: 切换单词时重置滚动位置
+
+#### 交互设计
+- ✅ **一致的键位映射**: j/k 在所有组件中表示向下/向上
+- ✅ **语义化操作**: h/l 根据上下文有不同含义（Review: 切换面板，Dictionary: 滚动详情）
+- ✅ **清晰的提示**: 所有操作都在标题栏中标注
+- ✅ **即时反馈**: 边框颜色和标记实时反映当前状态
+
+#### 键盘快捷键总结
+| 组件 | 按键 | 功能 |
+|------|------|------|
+| Review (Answer) | `j`/`↓` | 滚动当前激活面板 |
+| Review (Answer) | `k`/`↑` | 滚动当前激活面板 |
+| Review (Answer) | `h`/`←` | 切换到释义面板 |
+| Review (Answer) | `l`/`→`/`Tab` | 切换到词形变化面板 |
+| Dictionary | `j`/`↓` | 下一个单词 |
+| Dictionary | `k`/`↑` | 上一个单词 |
+| Dictionary | `h`/`←` | 详情面板向上滚动 |
+| Dictionary | `l`/`→` | 详情面板向下滚动 |
+| History | `j`/`↓` | 下一项 |
+| History | `k`/`↑` | 上一项 |
+| History | `PageDown` | 向下 10 项 |
+| History | `PageUp` | 向上 10 项 |
+| History | `g`/`Home` | 第一项 |
+| History | `G`/`End` | 最后一项 |
+
+详细信息请参阅:
+- [PANEL_SCROLL_ENHANCEMENT.md](./PANEL_SCROLL_ENHANCEMENT.md)
+- [INTERACTION_DESIGN.md](./INTERACTION_DESIGN.md)
+
+---
+
 **集成完成时间**: 2025-11-30  
-**版本**: v2.2 (ECDICT Integration + Scroll + Full Metadata Display)  
+**版本**: v2.3 (ECDICT Integration + Panel Scroll Enhancement + Full Interaction Design)  
 **状态**: ✅ 生产就绪
