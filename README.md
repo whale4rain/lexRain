@@ -19,7 +19,7 @@
 # 3. 运行
 cargo run --release
 
-# 操作: Dashboard 按 n (新词) | r (复习) | w (单词本) | d (词典) | h (历史) | q (退出)
+# 操作: Dashboard 按 r (复习) | w (单词本) | d (词典) | h (历史) | q (退出)
 # Review: Space (显示答案) | 1-4 (评分) | j/k (滚动) | h/l (切换面板)
 ```
 
@@ -95,6 +95,10 @@ Rust + ratatui + crossterm + rusqlite + ECDICT
 
 ## 版本历史
 
+- **v2.6** (2025-12-01): 单词本显示增强
+  - Review 界面显示当前单词本（带首字母图标）
+  - Dashboard 添加单词本统计卡片
+  - 移除 Learn New 功能，统一使用单词本复习
 - **v2.5** (2025-12-01): 单词本功能（按标签分类，支持乱序）
 - **v2.4** (2025-11-30): 浮窗功能（Dictionary/History 按 Enter）
 - **v2.3** (2025-11-30): 双面板独立滚动，Dictionary 完整元数据

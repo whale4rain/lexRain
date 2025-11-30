@@ -15,7 +15,6 @@ use ratatui::{layout::Rect, Frame};
 pub enum Action {
     NavigateTo(Screen),
     StartWordbookReview(String, bool), // (tag, shuffle)
-    LearnNew,
     Quit,
     None,
 }

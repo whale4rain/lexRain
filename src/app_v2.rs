@@ -88,10 +88,6 @@ impl AppV2 {
                 self.navigate_to(screen)?;
                 Ok(false)
             }
-            Action::LearnNew => {
-                self.start_learn_new()?;
-                Ok(false)
-            }
             Action::StartWordbookReview(tag, shuffle) => {
                 self.start_wordbook_review(&tag, shuffle)?;
                 Ok(false)
@@ -248,7 +244,6 @@ impl AppV2 {
         let status_bar = match self.current_screen {
             Screen::Dashboard => StatusBar::new()
                 .add_item("r", "Review")
-                .add_item("n", "Learn New")
                 .add_item("w", "Wordbook")
                 .add_item("d", "Dictionary")
                 .add_item("h", "History")
@@ -274,20 +269,6 @@ impl AppV2 {
         };
 
         status_bar.render(frame, footer_area);
-    }
-
-    pub fn start_learn_new(&mut self) -> Result<()> {
-        let db = Database::initialize()?;
-        let mut review = ReviewComponent::new(db);
-
-        if !review.start_review(review::ReviewMode::LearnNew)? {
-            // No new words available
-            return Ok(());
-        }
-
-        self.review = Some(review);
-        self.current_screen = Screen::Review;
-        Ok(())
     }
 
     pub fn start_wordbook_review(&mut self, tag: &str, shuffle: bool) -> Result<()> {

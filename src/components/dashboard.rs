@@ -14,6 +14,7 @@ pub struct DashboardComponent {
     db: Database,
     stats: (i64, i64, i64), // total, mastered, due
     today_completed: i64,
+    wordbook_count: usize,
     show_completion_message: bool,
 }
 
@@ -21,11 +22,13 @@ impl DashboardComponent {
     pub fn new(db: Database) -> Self {
         let stats = db.get_stats().unwrap_or((0, 0, 0));
         let today_completed = db.get_today_completed_count().unwrap_or(0);
+        let wordbook_count = db.get_wordbooks().unwrap_or_default().len();
 
         Self {
             db,
             stats,
             today_completed,
+            wordbook_count,
             show_completion_message: false,
         }
     }
@@ -33,6 +36,7 @@ impl DashboardComponent {
     pub fn refresh_stats(&mut self) {
         self.stats = self.db.get_stats().unwrap_or((0, 0, 0));
         self.today_completed = self.db.get_today_completed_count().unwrap_or(0);
+        self.wordbook_count = self.db.get_wordbooks().unwrap_or_default().len();
     }
 
     pub fn set_completion_message(&mut self, show: bool) {
@@ -45,10 +49,6 @@ impl Component for DashboardComponent {
         match key.code {
             KeyCode::Char('q') => Ok(Action::Quit),
             KeyCode::Char('r') => Ok(Action::NavigateTo(Screen::Review)),
-            KeyCode::Char('n') => {
-                // Learn new words - handled by app
-                Ok(Action::LearnNew)
-            }
             KeyCode::Char('w') => {
                 self.show_completion_message = false;
                 Ok(Action::NavigateTo(Screen::Wordbook))
@@ -80,6 +80,7 @@ impl Component for DashboardComponent {
                 Constraint::Length(3),  // Statistics
                 Constraint::Length(3),  // Progress bar
                 Constraint::Length(3),  // Today's progress
+                Constraint::Length(3),  // Wordbook info
                 Constraint::Min(1),     // Actions/Messages
             ])
             .margin(1)
@@ -123,6 +124,17 @@ impl Component for DashboardComponent {
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(today_widget, chunks[2]);
 
+        // Wordbook info
+        let wordbook_text = format!("📖 Available Wordbooks: {}  |  Press 'w' to explore", self.wordbook_count);
+        let wordbook_widget = Paragraph::new(wordbook_text)
+            .block(
+                Block::default()
+                    .title(" 📚 Wordbooks ")
+                    .borders(Borders::ALL),
+            )
+            .style(Style::default().fg(Color::Magenta));
+        frame.render_widget(wordbook_widget, chunks[3]);
+
         // Show completion message or instructions
         if self.show_completion_message {
             let completion_lines = vec![
@@ -136,13 +148,13 @@ impl Component for DashboardComponent {
                 Line::from(vec![
                     Span::raw("Press "),
                     Span::styled(
-                        "'n'",
+                        "'w'",
                         Style::default()
                             .fg(Color::Yellow)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw(" to learn "),
-                    Span::styled("new words", Style::default().fg(Color::Cyan)),
+                    Span::raw(" for "),
+                    Span::styled("Wordbook Review", Style::default().fg(Color::Cyan)),
                     Span::raw(" | "),
                     Span::styled(
                         "'d'",
@@ -179,7 +191,7 @@ impl Component for DashboardComponent {
             let completion_msg = Paragraph::new(completion_lines)
                 .block(Block::default().title(" Actions ").borders(Borders::ALL))
                 .alignment(ratatui::layout::Alignment::Center);
-            frame.render_widget(completion_msg, chunks[3]);
+            frame.render_widget(completion_msg, chunks[4]);
         } else {
             let instructions = Paragraph::new(vec![
                 Line::from(vec![
@@ -191,12 +203,12 @@ impl Component for DashboardComponent {
                     ),
                     Span::raw(" Review Due Words | "),
                     Span::styled(
-                        "'n'",
+                        "'w'",
                         Style::default()
                             .fg(Color::Yellow)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::raw(" Learn New Words"),
+                    Span::raw(" Wordbook Review"),
                 ]),
                 Line::from(vec![
                     Span::styled(
@@ -231,7 +243,7 @@ impl Component for DashboardComponent {
             ])
             .block(Block::default().title(" Actions ").borders(Borders::ALL))
             .alignment(ratatui::layout::Alignment::Center);
-            frame.render_widget(instructions, chunks[3]);
+            frame.render_widget(instructions, chunks[4]);
         }
     }
 }

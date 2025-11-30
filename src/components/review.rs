@@ -95,6 +95,7 @@ pub struct ReviewComponent {
     scroll: u16, // Scroll position for definition text
     exchange_scroll: u16, // Scroll position for exchange panel
     active_panel: ActivePanel, // Which panel is currently focused
+    wordbook_info: Option<(String, bool)>, // (tag, shuffle)
 }
 
 impl ReviewComponent {
@@ -109,14 +110,20 @@ impl ReviewComponent {
             scroll: 0,
             exchange_scroll: 0,
             active_panel: ActivePanel::Definition,
+            wordbook_info: None,
         }
     }
 
     pub fn start_review(&mut self, mode: ReviewMode) -> Result<bool> {
-        self.review_queue = match mode {
+        self.review_queue = match &mode {
             ReviewMode::Due => self.db.get_due_reviews()?,
-            ReviewMode::LearnNew => self.db.get_new_words_to_learn(20)?,
-            ReviewMode::Wordbook(tag, shuffle) => self.db.get_words_by_tag(&tag, 100, shuffle)?,
+            ReviewMode::Wordbook(tag, shuffle) => self.db.get_words_by_tag(tag, 100, *shuffle)?,
+        };
+
+        // Save wordbook info for display
+        self.wordbook_info = match mode {
+            ReviewMode::Wordbook(tag, shuffle) => Some((tag, shuffle)),
+            _ => None,
         };
 
         self.total_count = self.review_queue.len();
@@ -165,7 +172,6 @@ impl ReviewComponent {
 
 pub enum ReviewMode {
     Due,
-    LearnNew,
     Wordbook(String, bool), // (tag, shuffle)
 }
 
@@ -250,20 +256,47 @@ impl Component for ReviewComponent {
             let layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(3),      // Progress bar
+                    Constraint::Length(3),      // Progress bar + Wordbook info
                     Constraint::Length(5),      // Word + Phonetic + Metadata
                     Constraint::Min(10),        // Definition (scrollable)
                 ])
                 .split(inner_area);
 
-            // Progress bar
-            let progress_bar = ProgressBar::new(self.completed_count, self.total_count)
-                .with_label(format!(
+            // Progress bar + Wordbook info
+            let progress_label = if let Some((tag, shuffle)) = &self.wordbook_info {
+                // Generate wordbook icon (first letter)
+                let icon = tag.chars().next().unwrap_or('W').to_uppercase().to_string();
+                let tag_display = tag.split_whitespace()
+                    .map(|t| match t {
+                        "zk" => "中考",
+                        "gk" => "高考",
+                        "cet4" => "CET-4",
+                        "cet6" => "CET-6",
+                        "ky" => "考研",
+                        "toefl" => "TOEFL",
+                        "ielts" => "IELTS",
+                        "gre" => "GRE",
+                        _ => t,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" · ");
+                let mode_icon = if *shuffle { "🔀" } else { "📚" };
+                format!(
+                    "📖 [{icon}] {tag_display} {mode_icon}  |  Progress: {}/{} ({})",
+                    self.completed_count,
+                    self.total_count,
+                    self.total_count - self.completed_count
+                )
+            } else {
+                format!(
                     "Progress: {}/{} (Remaining: {})",
                     self.completed_count,
                     self.total_count,
                     self.total_count - self.completed_count
-                ))
+                )
+            };
+            let progress_bar = ProgressBar::new(self.completed_count, self.total_count)
+                .with_label(progress_label)
                 .with_color(Color::Cyan);
             progress_bar.render(frame, layout[0]);
 
