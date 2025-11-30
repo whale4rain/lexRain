@@ -57,6 +57,7 @@ cargo run --release
 |------|------|
 | `j/k` | 上下选词 |
 | `h/l` | 滚动详情 |
+| `Enter` | 打开浮窗查看完整信息 |
 | `g/G` | 首/尾 |
 | 字母 | 搜索 |
 | `q` | 返回 |
@@ -65,9 +66,16 @@ cargo run --release
 | 按键 | 功能 |
 |------|------|
 | `j/k` | 上下移动 |
+| `Enter` | 打开浮窗查看详情 |
 | `PageUp/Down` | 翻页 |
 | `g/G` | 首/尾 |
 | `q` | 返回 |
+
+### 浮窗操作（Dictionary/History）
+| 按键 | 功能 |
+|------|------|
+| `j/k` | 上下滚动 |
+| `q` | 关闭浮窗 |
 
 ## 技术栈
 
@@ -75,6 +83,7 @@ Rust + ratatui + crossterm + rusqlite + ECDICT
 
 ## 版本历史
 
+- **v2.4** (2025-11-30): 浮窗功能（Dictionary/History 按 Enter）
 - **v2.3** (2025-11-30): 双面板独立滚动，Dictionary 完整元数据
 - **v2.2** (2025-11-30): ECDICT 元数据显示，词性解析
 - **v2.1** (2025-11-30): Review/History 滚动功能

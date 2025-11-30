@@ -35,10 +35,34 @@ src/
     └── common/          # 通用组件
         ├── progress_bar.rs
         ├── search_input.rs
-        └── status_bar.rs
+        ├── status_bar.rs
+        └── popup.rs     # 浮窗组件
 ```
 
 ## 核心技术
+
+### 浮窗组件
+```rust
+// common/popup.rs
+pub struct Popup {
+    scroll: u16,
+    title: String,
+}
+
+impl Popup {
+    pub fn render(&mut self, frame: &mut Frame, area: Rect, content_lines: Vec<Line<'_>>) {
+        // 居中显示（80% 宽度，90% 高度）
+        let popup_area = centered_rect(80, 90, area);
+        // 清除背景 + 渲染边框 + 内容 + 滚动条
+    }
+}
+
+// 使用方式
+if self.show_popup {
+    let lines = self.build_detail_lines(word, log);
+    self.popup.render(frame, area, lines);
+}
+```
 
 ### SM-2 算法实现
 ```rust
@@ -236,6 +260,12 @@ fn exchange_type_name(key: &str) -> &str {
 2. **语义化**: h/l 根据上下文有合理的不同含义
 3. **可发现性**: 标题栏显示操作提示
 4. **Vim 兼容**: hjkl + g/G + 数字键
+5. **模态切换**: Enter 打开浮窗，q/Esc 关闭
+
+### 浮窗模式
+- Dictionary/History 按 Enter 进入浮窗模式
+- 浮窗模式下 j/k 滚动，q/Esc 退出
+- 浮窗居中显示（80%×90%），自动滚动条
 
 ## 性能优化
 

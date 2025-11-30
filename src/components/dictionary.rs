@@ -1,5 +1,5 @@
 use super::{Action, Component, Screen};
-use crate::components::common::SearchInput;
+use crate::components::common::{SearchInput, Popup};
 use crate::db::Database;
 use crate::models::{LearningLog, LearningStatus, Word};
 use anyhow::Result;
@@ -84,6 +84,8 @@ pub struct DictionaryComponent {
     selected_index: usize,
     table_state: TableState,
     detail_scroll: u16, // Scroll position for detail view
+    show_popup: bool,   // Whether to show popup
+    popup: Popup,       // Popup component
 }
 
 impl DictionaryComponent {
@@ -98,6 +100,8 @@ impl DictionaryComponent {
             selected_index: 0,
             table_state,
             detail_scroll: 0,
+            show_popup: false,
+            popup: Popup::new("单词详情".to_string()),
         })
     }
 
@@ -142,59 +146,293 @@ impl DictionaryComponent {
             self.detail_scroll = 0;
         }
     }
+
+    /// 生成单词详情的内容行（用于浮窗和详情面板）
+    fn build_detail_lines<'a>(&self, word: &'a Word, log: &Option<LearningLog>) -> Vec<Line<'a>> {
+        let mut lines = vec![];
+        
+        // Word + Phonetic
+        let mut word_line_spans = vec![
+            Span::styled(
+                &word.spelling,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+            ),
+        ];
+        if let Some(phonetic) = &word.phonetic {
+            word_line_spans.push(Span::raw("  "));
+            word_line_spans.push(Span::styled(
+                format!("[ {} ]", phonetic),
+                Style::default().fg(Color::DarkGray),
+            ));
+        }
+        lines.push(Line::from(word_line_spans));
+        lines.push(Line::from(""));
+        
+        // POS + Collins + Oxford
+        let mut meta_spans = vec![];
+        if let Some(pos) = &word.pos {
+            if !pos.is_empty() {
+                let pos_display = parse_pos(pos);
+                if !pos_display.is_empty() {
+                    meta_spans.push(Span::styled(
+                        pos_display,
+                        Style::default().fg(Color::Yellow),
+                    ));
+                }
+            }
+        }
+        if word.collins > 0 {
+            if !meta_spans.is_empty() {
+                meta_spans.push(Span::raw("  |  "));
+            }
+            meta_spans.push(Span::styled(
+                format!("柯林斯 {}", "★".repeat(word.collins as usize)),
+                Style::default().fg(Color::Magenta),
+            ));
+        }
+        if word.oxford {
+            if !meta_spans.is_empty() {
+                meta_spans.push(Span::raw("  |  "));
+            }
+            meta_spans.push(Span::styled(
+                "牛津3000",
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            ));
+        }
+        if !meta_spans.is_empty() {
+            lines.push(Line::from(meta_spans));
+            lines.push(Line::from(""));
+        }
+        
+        // Tags (考试标签)
+        if let Some(tag) = &word.tag {
+            if !tag.is_empty() {
+                let tags: Vec<&str> = tag.split_whitespace().collect();
+                let tag_display: Vec<String> = tags.iter().map(|t| {
+                    match *t {
+                        "zk" => "中考",
+                        "gk" => "高考",
+                        "cet4" => "CET-4",
+                        "cet6" => "CET-6",
+                        "ky" => "考研",
+                        "toefl" => "TOEFL",
+                        "ielts" => "IELTS",
+                        "gre" => "GRE",
+                        _ => t,
+                    }.to_string()
+                }).collect();
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        "考试: ",
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(
+                        tag_display.join(" · "),
+                        Style::default().fg(Color::Cyan),
+                    ),
+                ]));
+                lines.push(Line::from(""));
+            }
+        }
+        
+        // Chinese Translation
+        if let Some(translation) = &word.translation {
+            lines.push(Line::from(Span::styled(
+                "━━━ 中文释义 ━━━",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )));
+            for line in translation.lines() {
+                if !line.trim().is_empty() {
+                    lines.push(Line::from(format!("  {}", line)));
+                }
+            }
+            lines.push(Line::from(""));
+        }
+        
+        // English Definition
+        lines.push(Line::from(Span::styled(
+            "━━━ English Definition ━━━",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )));
+        for line in word.definition.lines() {
+            if !line.trim().is_empty() {
+                lines.push(Line::from(format!("  {}", line)));
+            }
+        }
+        lines.push(Line::from(""));
+        
+        // Exchange (词形变化)
+        if let Some(exchange) = &word.exchange {
+            if !exchange.is_empty() {
+                lines.push(Line::from(Span::styled(
+                    "━━━ 词形变化 ━━━",
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD),
+                )));
+                
+                let exchange_map = parse_exchange(exchange);
+                let order = ["0", "p", "d", "i", "3", "s", "r", "t", "1"];
+                
+                for key in &order {
+                    if let Some(value) = exchange_map.get(*key) {
+                        lines.push(Line::from(vec![
+                            Span::styled(
+                                format!("  {} ", exchange_type_name(key)),
+                                Style::default().fg(Color::DarkGray),
+                            ),
+                            Span::styled(
+                                value.clone(),
+                                Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                            ),
+                        ]));
+                    }
+                }
+                lines.push(Line::from(""));
+            }
+        }
+        
+        // Frequency (词频)
+        let mut freq_info = vec![];
+        if let Some(bnc) = word.bnc {
+            freq_info.push(format!("BNC: {}", bnc));
+        }
+        if let Some(frq) = word.frq {
+            freq_info.push(format!("当代: {}", frq));
+        }
+        if !freq_info.is_empty() {
+            lines.push(Line::from(vec![
+                Span::styled(
+                    "词频: ",
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    freq_info.join(" | "),
+                    Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                ),
+            ]));
+            lines.push(Line::from(""));
+        }
+
+        // Learning status
+        if let Some(log) = log {
+            lines.push(Line::from(Span::styled(
+                "━━━ 学习状态 ━━━",
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    "状态: ",
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    format!("{:?}", log.status),
+                    Style::default().fg(match log.status {
+                        LearningStatus::New => Color::Gray,
+                        LearningStatus::Learning => Color::Yellow,
+                        LearningStatus::Mastered => Color::Green,
+                    }),
+                ),
+            ]));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("复习次数: {} | 间隔: {} 天 | 记忆因子: {:.2}", 
+                        log.repetition, log.interval, log.e_factor),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+        }
+
+        lines
+    }
 }
 
 impl Component for DictionaryComponent {
     fn handle_key(&mut self, key: KeyEvent) -> Result<Action> {
-        match key.code {
-            KeyCode::Esc | KeyCode::Char('q') => Ok(Action::NavigateTo(Screen::Dashboard)),
-            KeyCode::Up | KeyCode::Char('k') => {
-                self.select_previous();
-                Ok(Action::None)
+        // 如果浮窗打开，处理浮窗的键位
+        if self.show_popup {
+            match key.code {
+                KeyCode::Char('q') | KeyCode::Esc => {
+                    self.show_popup = false;
+                    self.popup.reset_scroll();
+                    Ok(Action::None)
+                }
+                KeyCode::Char('j') | KeyCode::Down => {
+                    self.popup.scroll_down();
+                    Ok(Action::None)
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    self.popup.scroll_up();
+                    Ok(Action::None)
+                }
+                _ => Ok(Action::None),
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                self.select_next();
-                Ok(Action::None)
-            }
-            KeyCode::Left | KeyCode::Char('h') => {
-                self.detail_scroll = self.detail_scroll.saturating_sub(1);
-                Ok(Action::None)
-            }
-            KeyCode::Right | KeyCode::Char('l') => {
-                self.detail_scroll = self.detail_scroll.saturating_add(1);
-                Ok(Action::None)
-            }
-            KeyCode::Home | KeyCode::Char('g') => {
-                self.select_first();
-                Ok(Action::None)
-            }
-            KeyCode::End | KeyCode::Char('G') => {
-                self.select_last();
-                Ok(Action::None)
-            }
-            KeyCode::PageUp => {
-                for _ in 0..10 {
+        } else {
+            // 正常模式的键位处理
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('q') => Ok(Action::NavigateTo(Screen::Dashboard)),
+                KeyCode::Enter => {
+                    // 打开浮窗显示完整信息
+                    self.show_popup = true;
+                    self.popup.reset_scroll();
+                    Ok(Action::None)
+                }
+                KeyCode::Up | KeyCode::Char('k') => {
                     self.select_previous();
+                    Ok(Action::None)
                 }
-                Ok(Action::None)
-            }
-            KeyCode::PageDown => {
-                for _ in 0..10 {
+                KeyCode::Down | KeyCode::Char('j') => {
                     self.select_next();
+                    Ok(Action::None)
                 }
-                Ok(Action::None)
+                KeyCode::Left | KeyCode::Char('h') => {
+                    self.detail_scroll = self.detail_scroll.saturating_sub(1);
+                    Ok(Action::None)
+                }
+                KeyCode::Right | KeyCode::Char('l') => {
+                    self.detail_scroll = self.detail_scroll.saturating_add(1);
+                    Ok(Action::None)
+                }
+                KeyCode::Home | KeyCode::Char('g') => {
+                    self.select_first();
+                    Ok(Action::None)
+                }
+                KeyCode::End | KeyCode::Char('G') => {
+                    self.select_last();
+                    Ok(Action::None)
+                }
+                KeyCode::PageUp => {
+                    for _ in 0..10 {
+                        self.select_previous();
+                    }
+                    Ok(Action::None)
+                }
+                KeyCode::PageDown => {
+                    for _ in 0..10 {
+                        self.select_next();
+                    }
+                    Ok(Action::None)
+                }
+                KeyCode::Char(_c) => {
+                    self.search_input.handle_key(key);
+                    self.update_search()?;
+                    Ok(Action::None)
+                }
+                KeyCode::Backspace => {
+                    self.search_input.handle_key(key);
+                    self.update_search()?;
+                    Ok(Action::None)
+                }
+                _ => Ok(Action::None),
             }
-            KeyCode::Char(_c) => {
-                self.search_input.handle_key(key);
-                self.update_search()?;
-                Ok(Action::None)
-            }
-            KeyCode::Backspace => {
-                self.search_input.handle_key(key);
-                self.update_search()?;
-                Ok(Action::None)
-            }
-            _ => Ok(Action::None),
         }
     }
 
@@ -548,6 +786,14 @@ impl Component for DictionaryComponent {
                     &mut ScrollbarState::new(detail_content_height as usize)
                         .position(self.detail_scroll as usize),
                 );
+            }
+        }
+
+        // 渲染浮窗（如果打开）
+        if self.show_popup {
+            if let Some((word, log)) = self.word_list.get(self.selected_index) {
+                let popup_lines = self.build_detail_lines(word, log);
+                self.popup.render(frame, area, popup_lines);
             }
         }
     }
