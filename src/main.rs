@@ -18,38 +18,14 @@ use std::time::Duration;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Import words from a JSON file
-    #[arg(short, long)]
-    import: Option<String>,
-
-    /// Use the new component-based architecture (experimental)
-    #[arg(long)]
+    /// Use the new component-based architecture (default)
+    #[arg(long, default_value_t = true)]
     v2: bool,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let db = Database::initialize()?;
-
-    // Handle import if requested
-    if let Some(path) = args.import {
-        println!("Importing from {}...", path);
-        let content = std::fs::read_to_string(&path)?;
-        let words: Vec<models::Word> = serde_json::from_str(&content)?;
-
-        let mut imported_count = 0;
-        for word in words {
-            db.add_word(&word)?;
-            // Get the word_id after insertion
-            if let Some(word_id) = db.get_word_id(&word.spelling)? {
-                db.init_learning_log(word_id)?;
-                imported_count += 1;
-            }
-        }
-
-        println!("Successfully imported {} words!", imported_count);
-        return Ok(());
-    }
 
     // Initialize TUI
     let mut terminal = tui::init()?;

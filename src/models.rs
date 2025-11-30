@@ -6,9 +6,15 @@ pub struct Word {
     pub id: Option<i64>,
     pub spelling: String,
     pub phonetic: Option<String>,
-    pub definition: String, // JSON string or simple text
-    pub chinese_definition: Option<String>, // Chinese translation
-    pub tags: Option<String>,
+    pub definition: String,
+    pub translation: Option<String>, // Chinese translation from ECDICT
+    pub pos: Option<String>,         // Part of speech
+    pub collins: i32,                // Collins star rating (0-5)
+    pub oxford: bool,                // Oxford 3000 core word
+    pub tag: Option<String>,         // Tags: zk/gk/cet4/cet6/ky/toefl/ielts/gre
+    pub bnc: Option<i32>,           // BNC corpus frequency rank
+    pub frq: Option<i32>,           // Contemporary corpus frequency rank
+    pub exchange: Option<String>,    // Word forms (tenses, plural, etc.)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

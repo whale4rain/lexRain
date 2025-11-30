@@ -259,18 +259,39 @@ impl Component for DictionaryComponent {
                 ]),
             ];
 
-            if let Some(chinese_def) = &word.chinese_definition {
+            if let Some(translation) = &word.translation {
                 detail_lines.push(Line::from(""));
                 detail_lines.push(Line::from(vec![
                     Span::styled("中文: ", Style::default().fg(Color::Yellow)),
-                    Span::raw(chinese_def),
+                    Span::raw(translation),
+                ]));
+            }
+
+            // Show ECDICT metadata
+            let mut meta_parts = Vec::new();
+            if word.collins > 0 {
+                meta_parts.push(format!("Collins {}", "★".repeat(word.collins as usize)));
+            }
+            if word.oxford {
+                meta_parts.push("Oxford 3000".to_string());
+            }
+            if let Some(tag) = &word.tag {
+                if !tag.is_empty() {
+                    meta_parts.push(tag.replace(" ", ", ").to_uppercase());
+                }
+            }
+            if !meta_parts.is_empty() {
+                detail_lines.push(Line::from(""));
+                detail_lines.push(Line::from(vec![
+                    Span::styled("Tags: ", Style::default().fg(Color::Magenta)),
+                    Span::styled(meta_parts.join(" | "), Style::default().fg(Color::Cyan)),
                 ]));
             }
 
             if let Some(log) = log {
                 detail_lines.push(Line::from(""));
                 detail_lines.push(Line::from(vec![
-                    Span::styled("Status: ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("Learning: ", Style::default().fg(Color::DarkGray)),
                     Span::styled(
                         format!("{:?}", log.status),
                         Style::default().fg(match log.status {

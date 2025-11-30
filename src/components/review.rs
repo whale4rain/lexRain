@@ -6,10 +6,10 @@ use crate::sm2;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
     Frame,
 };
 
@@ -26,6 +26,7 @@ pub struct ReviewComponent {
     pub state: ReviewState,
     total_count: usize,
     completed_count: usize,
+    scroll: u16, // Scroll position for definition text
 }
 
 impl ReviewComponent {
@@ -37,6 +38,7 @@ impl ReviewComponent {
             state: ReviewState::Question,
             total_count: 0,
             completed_count: 0,
+            scroll: 0,
         }
     }
 
@@ -60,10 +62,12 @@ impl ReviewComponent {
     fn next_card(&mut self) {
         self.current_item = self.review_queue.pop();
         self.state = ReviewState::Question;
+        self.scroll = 0; // Reset scroll for new card
     }
 
     fn show_answer(&mut self) {
         self.state = ReviewState::Answer;
+        self.scroll = 0; // Reset scroll when showing answer
     }
 
     fn submit_review(&mut self, quality: u8) -> Result<()> {
@@ -102,6 +106,14 @@ impl Component for ReviewComponent {
             },
             ReviewState::Answer => match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => Ok(Action::NavigateTo(Screen::Dashboard)),
+                KeyCode::Char('j') | KeyCode::Down => {
+                    self.scroll = self.scroll.saturating_add(1);
+                    Ok(Action::None)
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    self.scroll = self.scroll.saturating_sub(1);
+                    Ok(Action::None)
+                }
                 KeyCode::Char('1') => {
                     self.submit_review(1)?;
                     if self.is_complete() {
@@ -204,7 +216,7 @@ impl Component for ReviewComponent {
                         Line::from(word.definition.as_str()),
                     ];
 
-                    if let Some(chinese_def) = &word.chinese_definition {
+                    if let Some(translation) = &word.translation {
                         def_lines.push(Line::from(""));
                         def_lines.push(Line::from(Span::styled(
                             "中文:",
@@ -212,14 +224,33 @@ impl Component for ReviewComponent {
                                 .fg(Color::Cyan)
                                 .add_modifier(Modifier::BOLD),
                         )));
-                        def_lines.push(Line::from(chinese_def.as_str()));
+                        def_lines.push(Line::from(translation.as_str()));
                     }
+
+                    // Calculate content height for scrollbar
+                    let content_height = def_lines.len() as u16;
 
                     let def_text = Paragraph::new(def_lines)
                         .wrap(Wrap { trim: true })
-                        .alignment(ratatui::layout::Alignment::Center)
-                        .block(Block::default().borders(Borders::TOP).title(" Definition "));
+                        .alignment(ratatui::layout::Alignment::Left)
+                        .scroll((self.scroll, 0))
+                        .block(Block::default().borders(Borders::TOP).title(" Definition (↑/↓ or j/k to scroll) "));
                     frame.render_widget(def_text, layout[3]);
+
+                    // Render scrollbar if content is longer than visible area
+                    if content_height > layout[3].height {
+                        frame.render_stateful_widget(
+                            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                                .begin_symbol(Some("↑"))
+                                .end_symbol(Some("↓")),
+                            layout[3].inner(Margin {
+                                vertical: 1,
+                                horizontal: 0,
+                            }),
+                            &mut ScrollbarState::new(content_height as usize)
+                                .position(self.scroll as usize),
+                        );
+                    }
                 }
             }
         } else {

@@ -202,10 +202,10 @@ fn render_review(app: &App, frame: &mut Frame, area: Rect) {
                     Line::from(word.definition.as_str()),
                 ];
 
-                if let Some(chinese_def) = &word.chinese_definition {
+                if let Some(translation) = &word.translation {
                     def_lines.push(Line::from(""));
                     def_lines.push(Line::from(Span::styled("中文:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))));
-                    def_lines.push(Line::from(chinese_def.as_str()));
+                    def_lines.push(Line::from(translation.as_str()));
                 }
 
                 let def_text = Paragraph::new(def_lines)
@@ -357,11 +357,11 @@ fn render_history(app: &App, frame: &mut Frame, area: Rect) {
                 ),
             ];
 
-            if let Some(chinese_def) = &word.chinese_definition {
+            if let Some(translation) = &word.translation {
                 content_spans.push(Span::raw("\n  "));
                 content_spans.push(Span::styled(
-                    chinese_def.as_str(),
-                    Style::default().fg(Color::Gray)
+                    translation.as_str(),
+                    Style::default().fg(Color::Gray),
                 ));
             }
 

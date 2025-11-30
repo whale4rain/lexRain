@@ -1,175 +1,70 @@
-# 快速开始指南
+# LexRain 快速开始指南
 
-## 1. 第一次使用
+## 📦 准备工作
 
-### 编译项目
-```bash
-cargo build --release
-```
+### 1. 下载 ECDICT 数据库
 
-### 导入示例词库
-```bash
-cargo run --release -- --import sample_words.json
-```
+访问：https://github.com/skywind3000/ECDICT/releases/tag/1.0.28
 
-成功后会显示：
-```
-Importing from sample_words.json...
-Successfully imported 20 words!
-```
+下载：`ecdict-sqlite-28.zip` (~700MB)
 
-## 2. 启动应用
+### 2. 解压数据库
+
+解压到项目根目录，确保路径为：`ecdict-sqlite-28/stardict.db`
+
+### 3. 运行程序
 
 ```bash
-cargo run --release
+# Windows
+.\target\release\lexRain.exe
+
+# Linux/macOS
+./target/release/lexRain
 ```
 
-## 3. 界面说明
+## 🎮 基本操作
 
-启动后你会看到主界面（Dashboard），显示：
+### 首次使用
 
-```
-┌────────────────── LexRain ──────────────────┐
-│ Dashboard | Review | Dictionary | Quit      │
-└──────────────────────────────────────────────┘
+1. 程序启动 → Dashboard
+2. 按 `n` → 学习新单词（自动选取20个高质量词汇）
+3. 按 `Space` → 显示中英文释义
+4. 按 `1-4` → 评价记忆质量
 
-┌─────────────── Statistics ──────────────────┐
-│ Total Words: 20 | Mastered: 0 | Due Today: 20│
-└──────────────────────────────────────────────┘
+### 快捷键
 
-┌────────────── Mastery Progress ─────────────┐
-│ ████████░░░░░░░░░░░░░░░░░░░░░░░░░  0%       │
-└──────────────────────────────────────────────┘
+**Dashboard**: `r` 复习 | `n` 新词 | `d` 词典 | `h` 历史 | `s` 统计 | `q` 退出
 
-┌──────────────── Actions ────────────────────┐
-│ Press 'r' to start Review                    │
-│ Press 'd' for Dictionary                     │
-│ Press 'q' to Quit                            │
-└──────────────────────────────────────────────┘
-```
+**Review**: `Space` 显示答案 | `1-4` 评分 | `q` 返回
 
-## 4. 开始复习
+**Dictionary**: 输入搜索 | `↑/↓` 或 `j/k` 移动 | `g/G` 首尾 | `q` 返回
 
-### 按 'r' 进入复习模式
+## 💡 评分标准
 
-你会看到类似这样的界面：
+- **4 (Easy)**: 瞬间回忆，非常熟悉
+- **3 (Good)**: 稍有思考，能回忆起
+- **2 (Hard)**: 勉强想起，不流利
+- **1 (Forgot)**: 完全忘记
 
-```
-┌─────────────────── Review ──────────────────┐
-│                                              │
-│              algorithm                       │
-│                                              │
-│            [ ˈælɡərɪðəm ]                   │
-│                                              │
-│        Press <Space> to show definition      │
-│                                              │
-└──────────────────────────────────────────────┘
+## 📚 ECDICT 特性
 
-Space: Show Answer | q: Quit
-```
+- **340万+ 词条**，双语释义
+- **柯林斯星级**，牛津3000标注
+- **考试标签**：四六级/托福/雅思/GRE
+- **词频数据**：智能选词
 
-### 查看释义
+## 🔧 常见问题
 
-按空格键后会显示释义：
+**Q**: 找不到数据库？  
+**A**: 确保 `ecdict-sqlite-28/stardict.db` 路径正确
 
-```
-┌─────────────────── Review ──────────────────┐
-│                                              │
-│              algorithm                       │
-│                                              │
-│            [ ˈælɡərɪðəm ]                   │
-│                                              │
-│ ─────────────── Definition ──────────────── │
-│ n. A step-by-step procedure for solving a   │
-│ problem or accomplishing a task, especially  │
-│ in computer science and mathematics.         │
-└──────────────────────────────────────────────┘
+**Q**: 如何备份？  
+**A**: 复制 `lexrain_progress.db` 文件
 
-1: Forgot | 2: Hard | 3: Good | 4: Easy
-```
+## 🎯 学习目标
 
-### 评分
+- 📕 100词 → 📗 500词 → 📘 1000词 → 📙 3000词
 
-根据你的记忆情况选择：
-- **1** - 完全不记得这个单词
-- **2** - 记得但想了很久
-- **3** - 比较快想起来了
-- **4** - 立刻就知道意思
+---
 
-评分后会自动显示下一个单词。
-
-## 5. 记忆原理
-
-### SuperMemo-2 算法
-
-应用会根据你的评分自动调整复习间隔：
-
-- **第一次评 3/4**：1 天后再复习
-- **第二次评 3/4**：6 天后再复习
-- **之后每次评 3/4**：间隔逐渐拉长（基于难度系数）
-- **评 1/2**：重新开始，明天复习
-
-### 学习状态
-
-- **New (新词)**：刚导入还没复习过
-- **Learning (学习中)**：已经复习过但还没完全掌握
-- **Mastered (已掌握)**：间隔超过 21 天，认为已经掌握
-
-## 6. 制作自己的词库
-
-创建一个 JSON 文件，例如 `my_words.json`：
-
-```json
-[
-  {
-    "spelling": "serendipity",
-    "phonetic": "ˌserənˈdɪpɪti",
-    "definition": "n. The occurrence and development of events by chance in a happy or beneficial way.",
-    "tags": "vocabulary,advanced"
-  },
-  {
-    "spelling": "ephemeral",
-    "phonetic": "ɪˈfemərəl",
-    "definition": "adj. Lasting for a very short time.",
-    "tags": "vocabulary,literature"
-  }
-]
-```
-
-然后导入：
-
-```bash
-cargo run --release -- --import my_words.json
-```
-
-## 7. 常见问题
-
-### Q: 数据存储在哪里？
-A: 在项目根目录的 `lexrain.db` SQLite 数据库文件中。
-
-### Q: 如何重新开始？
-A: 删除 `lexrain.db` 文件，然后重新导入词库。
-
-### Q: 可以多次导入吗？
-A: 可以。相同拼写的单词会被忽略（INSERT OR IGNORE）。
-
-### Q: 如何查看今天有多少单词要复习？
-A: Dashboard 界面的 "Due Today" 会显示当天到期的单词数量。
-
-### Q: 为什么刚导入的单词都显示 "Due Today"？
-A: 新导入的单词初始的 `next_review` 时间是导入时刻，所以会立即出现在复习列表中。
-
-## 8. 学习建议
-
-1. **每天坚持**：即使只有 5 分钟，每天复习效果最好
-2. **诚实评分**：不要高估自己，诚实评分才能让算法发挥最佳效果
-3. **适量导入**：建议从 20-50 个单词开始，逐步增加
-4. **及时复习**：看到 "Due Today" 有单词时尽快复习
-
-## 9. 下一步
-
-- 探索更多词库资源（参考 README.md）
-- 制作个性化词库
-- 每天坚持复习，见证进步！
-
-祝你学习愉快！
+更多详情：[README.md](./README.md) | [ECDICT_INTEGRATION.md](./ECDICT_INTEGRATION.md)
