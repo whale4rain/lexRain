@@ -2,14 +2,15 @@ use super::{Action, Component, Screen};
 use crate::components::common::{SearchInput, Popup};
 use crate::db::Database;
 use crate::models::{LearningLog, LearningStatus, Word};
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{
-        Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
         Table, TableState, Wrap,
     },
     Frame,
@@ -171,16 +172,15 @@ impl DictionaryComponent {
         let mut word_line_spans = vec![
             Span::styled(
                 &word.spelling,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                Theme::text_title()
+                    .add_modifier(Modifier::UNDERLINED),
             ),
         ];
         if let Some(phonetic) = &word.phonetic {
             word_line_spans.push(Span::raw("  "));
             word_line_spans.push(Span::styled(
                 format!("[ {} ]", phonetic),
-                Style::default().fg(Color::DarkGray),
+                Theme::text_secondary(),
             ));
         }
         lines.push(Line::from(word_line_spans));
@@ -194,7 +194,7 @@ impl DictionaryComponent {
                 if !pos_display.is_empty() {
                     meta_spans.push(Span::styled(
                         pos_display,
-                        Style::default().fg(Color::Yellow),
+                        Theme::text_warning(),
                     ));
                 }
             }
@@ -205,7 +205,7 @@ impl DictionaryComponent {
             }
             meta_spans.push(Span::styled(
                 format!("柯林斯 {}", "★".repeat(word.collins as usize)),
-                Style::default().fg(Color::Magenta),
+                Theme::text_info(),
             ));
         }
         if word.oxford {
@@ -214,7 +214,7 @@ impl DictionaryComponent {
             }
             meta_spans.push(Span::styled(
                 "牛津3000",
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Theme::text_success(),
             ));
         }
         if !meta_spans.is_empty() {
@@ -242,11 +242,11 @@ impl DictionaryComponent {
                 lines.push(Line::from(vec![
                     Span::styled(
                         "考试: ",
-                        Style::default().fg(Color::DarkGray),
+                        Theme::text_secondary(),
                     ),
                     Span::styled(
                         tag_display.join(" · "),
-                        Style::default().fg(Color::Cyan),
+                        Theme::text_info(),
                     ),
                 ]));
                 lines.push(Line::from(""));
@@ -257,9 +257,7 @@ impl DictionaryComponent {
         if let Some(translation) = &word.translation {
             lines.push(Line::from(Span::styled(
                 "━━━ 中文释义 ━━━",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_title(),
             )));
             for line in translation.lines() {
                 if !line.trim().is_empty() {
@@ -272,9 +270,7 @@ impl DictionaryComponent {
         // English Definition
         lines.push(Line::from(Span::styled(
             "━━━ English Definition ━━━",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            Theme::text_warning(),
         )));
         for line in word.definition.lines() {
             if !line.trim().is_empty() {
@@ -288,9 +284,7 @@ impl DictionaryComponent {
             if !exchange.is_empty() {
                 lines.push(Line::from(Span::styled(
                     "━━━ 词形变化 ━━━",
-                    Style::default()
-                        .fg(Color::Magenta)
-                        .add_modifier(Modifier::BOLD),
+                    Theme::text_accent(),
                 )));
                 
                 let exchange_map = parse_exchange(exchange);
@@ -301,11 +295,11 @@ impl DictionaryComponent {
                         lines.push(Line::from(vec![
                             Span::styled(
                                 format!("  {} ", exchange_type_name(key)),
-                                Style::default().fg(Color::DarkGray),
+                                Theme::text_secondary(),
                             ),
                             Span::styled(
                                 value.clone(),
-                                Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                Theme::text_title().add_modifier(Modifier::ITALIC),
                             ),
                         ]));
                     }
@@ -326,11 +320,11 @@ impl DictionaryComponent {
             lines.push(Line::from(vec![
                 Span::styled(
                     "词频: ",
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_secondary(),
                 ),
                 Span::styled(
                     freq_info.join(" | "),
-                    Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                    Theme::text_secondary().add_modifier(Modifier::ITALIC),
                 ),
             ]));
             lines.push(Line::from(""));
@@ -340,29 +334,27 @@ impl DictionaryComponent {
         if let Some(log) = log {
             lines.push(Line::from(Span::styled(
                 "━━━ 学习状态 ━━━",
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_success(),
             )));
             lines.push(Line::from(vec![
                 Span::styled(
                     "状态: ",
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_secondary(),
                 ),
                 Span::styled(
                     format!("{:?}", log.status),
-                    Style::default().fg(match log.status {
-                        LearningStatus::New => Color::Gray,
-                        LearningStatus::Learning => Color::Yellow,
-                        LearningStatus::Mastered => Color::Green,
-                    }),
+                    match log.status {
+                        LearningStatus::New => Theme::text_secondary(),
+                        LearningStatus::Learning => Theme::text_warning(),
+                        LearningStatus::Mastered => Theme::text_success(),
+                    },
                 ),
             ]));
             lines.push(Line::from(vec![
                 Span::styled(
                     format!("复习次数: {} | 间隔: {} 天 | 记忆因子: {:.2}", 
                         log.repetition, log.interval, log.e_factor),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_secondary(),
                 ),
             ]));
         }
@@ -496,7 +488,7 @@ impl Component for DictionaryComponent {
             self.loading_frame = self.loading_frame.wrapping_add(1);
         }
         
-        frame.render_widget(Block::default().borders(Borders::ALL), area);
+        frame.render_widget(Theme::block_default(), area);
 
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -522,14 +514,11 @@ impl Component for DictionaryComponent {
             format!(" Search {} ", mode_indicator)
         };
         
-        let search_block = Block::default()
-            .borders(Borders::ALL)
-            .title(search_title)
-            .border_style(if self.mode == Mode::Insert {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default().fg(Color::Cyan)
-            });
+        let search_block = if self.mode == Mode::Insert {
+            Theme::block_warning().title(search_title.clone())
+        } else {
+            Theme::block_default().title(search_title.clone())
+        };
         
         let search_widget = Paragraph::new(if self.search_input.value.is_empty() {
             if self.mode == Mode::Insert {
@@ -542,9 +531,9 @@ impl Component for DictionaryComponent {
         })
         .block(search_block)
         .style(if self.search_input.value.is_empty() {
-            Style::default().fg(Color::DarkGray)
+            Theme::text_secondary()
         } else {
-            Style::default().fg(Color::Yellow)
+            Theme::text_warning()
         });
         
         frame.render_widget(search_widget, layout[0]);
@@ -571,12 +560,12 @@ impl Component for DictionaryComponent {
 
                 let status_color = if let Some(log) = log {
                     match log.status {
-                        LearningStatus::New => Color::Gray,
-                        LearningStatus::Learning => Color::Yellow,
-                        LearningStatus::Mastered => Color::Green,
+                        LearningStatus::New => Theme::SECONDARY,
+                        LearningStatus::Learning => Theme::WARNING,
+                        LearningStatus::Mastered => Theme::SUCCESS,
                     }
                 } else {
-                    Color::Gray
+                    Theme::SECONDARY
                 };
 
                 let phonetic = word
@@ -592,9 +581,9 @@ impl Component for DictionaryComponent {
                 };
 
                 Row::new(vec![
-                    Cell::from(Span::styled(status_symbol, Style::default().fg(status_color))),
-                    Cell::from(Span::styled(&word.spelling, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
-                    Cell::from(Span::styled(phonetic, Style::default().fg(Color::DarkGray))),
+                    Cell::from(Span::styled(status_symbol, Theme::text_normal().fg(status_color))),
+                    Cell::from(Span::styled(&word.spelling, Theme::text_title())),
+                    Cell::from(Span::styled(phonetic, Theme::text_secondary())),
                     Cell::from(interval),
                 ])
             })
@@ -611,16 +600,15 @@ impl Component for DictionaryComponent {
         )
         .header(
             Row::new(vec![
-                Cell::from(Span::styled("", Style::default().add_modifier(Modifier::BOLD))),
-                Cell::from(Span::styled("Word", Style::default().add_modifier(Modifier::BOLD))),
-                Cell::from(Span::styled("Phonetic", Style::default().add_modifier(Modifier::BOLD))),
-                Cell::from(Span::styled("Interval", Style::default().add_modifier(Modifier::BOLD))),
+                Cell::from(Span::styled("", Theme::text_warning())),
+                Cell::from(Span::styled("Word", Theme::text_warning())),
+                Cell::from(Span::styled("Phonetic", Theme::text_warning())),
+                Cell::from(Span::styled("Interval", Theme::text_warning())),
             ])
-            .style(Style::default().fg(Color::Yellow))
+            .style(Theme::text_warning())
         )
         .block(
-            Block::default()
-                .borders(Borders::ALL)
+            Theme::block_default()
                 .title(format!(" Dictionary ({} words) ", items_len))
                 .title_bottom(
                     if items_len > 0 {
@@ -632,10 +620,10 @@ impl Component for DictionaryComponent {
                             Span::raw("| "),
                             Span::styled(
                                 format!("{}/{}", self.selected_index + 1, items_len),
-                                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                                Theme::text_title(),
                             ),
                             Span::raw(" | "),
-                            Span::styled(help, Style::default().fg(Color::DarkGray)),
+                            Span::styled(help, Theme::text_secondary()),
                             Span::raw(" |"),
                         ])
                         .right_aligned()
@@ -644,7 +632,7 @@ impl Component for DictionaryComponent {
                     }
                 ),
         )
-        .row_highlight_style(Style::default().fg(Color::Green).add_modifier(Modifier::BOLD));
+        .row_highlight_style(Theme::text_success());
 
         frame.render_stateful_widget(table, layout[1], &mut self.table_state);
 
@@ -668,16 +656,15 @@ impl Component for DictionaryComponent {
             let mut word_line_spans = vec![
                 Span::styled(
                     &word.spelling,
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                    Theme::text_title()
+                        .add_modifier(Modifier::UNDERLINED),
                 ),
             ];
             if let Some(phonetic) = &word.phonetic {
                 word_line_spans.push(Span::raw("  "));
                 word_line_spans.push(Span::styled(
                     format!("[ {} ]", phonetic),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_secondary(),
                 ));
             }
             detail_lines.push(Line::from(word_line_spans));
@@ -691,7 +678,7 @@ impl Component for DictionaryComponent {
                     if !pos_display.is_empty() {
                         meta_spans.push(Span::styled(
                             pos_display,
-                            Style::default().fg(Color::Yellow),
+                            Theme::text_warning(),
                         ));
                     }
                 }
@@ -702,7 +689,7 @@ impl Component for DictionaryComponent {
                 }
                 meta_spans.push(Span::styled(
                     format!("柯林斯 {}", "★".repeat(word.collins as usize)),
-                    Style::default().fg(Color::Magenta),
+                    Theme::text_info(),
                 ));
             }
             if word.oxford {
@@ -711,7 +698,7 @@ impl Component for DictionaryComponent {
                 }
                 meta_spans.push(Span::styled(
                     "牛津3000",
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                    Theme::text_success(),
                 ));
             }
             if !meta_spans.is_empty() {
@@ -739,11 +726,11 @@ impl Component for DictionaryComponent {
                     detail_lines.push(Line::from(vec![
                         Span::styled(
                             "考试: ",
-                            Style::default().fg(Color::DarkGray),
+                            Theme::text_secondary(),
                         ),
                         Span::styled(
                             tag_display.join(" · "),
-                            Style::default().fg(Color::Cyan),
+                            Theme::text_info(),
                         ),
                     ]));
                     detail_lines.push(Line::from(""));
@@ -754,9 +741,7 @@ impl Component for DictionaryComponent {
             if let Some(translation) = &word.translation {
                 detail_lines.push(Line::from(Span::styled(
                     "━━━ 中文释义 ━━━",
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
+                    Theme::text_title(),
                 )));
                 for line in translation.lines() {
                     if !line.trim().is_empty() {
@@ -769,9 +754,7 @@ impl Component for DictionaryComponent {
             // English Definition
             detail_lines.push(Line::from(Span::styled(
                 "━━━ English Definition ━━━",
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
+                Theme::text_warning(),
             )));
             for line in word.definition.lines() {
                 if !line.trim().is_empty() {
@@ -785,9 +768,7 @@ impl Component for DictionaryComponent {
                 if !exchange.is_empty() {
                     detail_lines.push(Line::from(Span::styled(
                         "━━━ 词形变化 ━━━",
-                        Style::default()
-                            .fg(Color::Magenta)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_accent(),
                     )));
                     
                     let exchange_map = parse_exchange(exchange);
@@ -798,11 +779,11 @@ impl Component for DictionaryComponent {
                             detail_lines.push(Line::from(vec![
                                 Span::styled(
                                     format!("  {} ", exchange_type_name(key)),
-                                    Style::default().fg(Color::DarkGray),
+                                    Theme::text_secondary(),
                                 ),
                                 Span::styled(
                                     value.clone(),
-                                    Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                    Theme::text_title().add_modifier(Modifier::ITALIC),
                                 ),
                             ]));
                         }
@@ -823,11 +804,11 @@ impl Component for DictionaryComponent {
                 detail_lines.push(Line::from(vec![
                     Span::styled(
                         "词频: ",
-                        Style::default().fg(Color::DarkGray),
+                        Theme::text_secondary(),
                     ),
                     Span::styled(
                         freq_info.join(" | "),
-                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                        Theme::text_secondary().add_modifier(Modifier::ITALIC),
                     ),
                 ]));
                 detail_lines.push(Line::from(""));
@@ -837,29 +818,27 @@ impl Component for DictionaryComponent {
             if let Some(log) = log {
                 detail_lines.push(Line::from(Span::styled(
                     "━━━ 学习状态 ━━━",
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
+                    Theme::text_success(),
                 )));
                 detail_lines.push(Line::from(vec![
                     Span::styled(
                         "状态: ",
-                        Style::default().fg(Color::DarkGray),
+                        Theme::text_secondary(),
                     ),
                     Span::styled(
                         format!("{:?}", log.status),
-                        Style::default().fg(match log.status {
-                            LearningStatus::New => Color::Gray,
-                            LearningStatus::Learning => Color::Yellow,
-                            LearningStatus::Mastered => Color::Green,
-                        }),
+                        match log.status {
+                            LearningStatus::New => Theme::text_secondary(),
+                            LearningStatus::Learning => Theme::text_warning(),
+                            LearningStatus::Mastered => Theme::text_success(),
+                        },
                     ),
                 ]));
                 detail_lines.push(Line::from(vec![
                     Span::styled(
                         format!("复习次数: {} | 间隔: {} 天 | 记忆因子: {:.2}", 
                             log.repetition, log.interval, log.e_factor),
-                        Style::default().fg(Color::DarkGray),
+                        Theme::text_secondary(),
                     ),
                 ]));
             }
@@ -867,10 +846,8 @@ impl Component for DictionaryComponent {
             let detail_content_height = detail_lines.len() as u16;
             let detail = Paragraph::new(detail_lines)
                 .block(
-                    Block::default()
-                        .borders(Borders::ALL)
+                    Theme::block_default()
                         .title(" Detail (h/l: scroll) ")
-                        .border_style(Style::default().fg(Color::Cyan)),
                 )
                 .wrap(Wrap { trim: true })
                 .scroll((self.detail_scroll, 0));

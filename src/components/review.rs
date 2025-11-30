@@ -3,6 +3,7 @@ use crate::components::common::ProgressBar;
 use crate::db::Database;
 use crate::models::{LearningLog, Word};
 use crate::sm2;
+use crate::theme::Theme;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::collections::HashMap;
@@ -67,7 +68,7 @@ fn parse_pos(pos: &str) -> String {
 }
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
     Frame,
@@ -253,7 +254,7 @@ impl Component for ReviewComponent {
 
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         if let Some((word, _)) = &self.current_item {
-            let block = Block::default().borders(Borders::ALL).title(" Review ");
+            let block = Theme::block_with_title(" Review ");
             let inner_area = block.inner(area);
             frame.render_widget(block, area);
 
@@ -301,7 +302,7 @@ impl Component for ReviewComponent {
             };
             let progress_bar = ProgressBar::new(self.completed_count, self.total_count)
                 .with_label(progress_label)
-                .with_color(Color::Cyan);
+                .with_color(Theme::PRIMARY);
             progress_bar.render(frame, layout[0]);
 
             // Word Header (Word + Phonetic + Metadata in one compact area)
@@ -311,16 +312,15 @@ impl Component for ReviewComponent {
             let mut word_line_spans = vec![
                 Span::styled(
                     &word.spelling,
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                    Theme::text_title()
+                        .add_modifier(Modifier::UNDERLINED),
                 ),
             ];
             if let Some(phonetic) = &word.phonetic {
                 word_line_spans.push(Span::raw("  "));
                 word_line_spans.push(Span::styled(
                     format!("[ {} ]", phonetic),
-                    Style::default().fg(Color::DarkGray),
+                    Theme::text_secondary(),
                 ));
             }
             header_lines.push(Line::from(word_line_spans));
@@ -333,7 +333,7 @@ impl Component for ReviewComponent {
                     if !pos_display.is_empty() {
                         meta_spans.push(Span::styled(
                             pos_display,
-                            Style::default().fg(Color::Yellow),
+                            Theme::text_warning(),
                         ));
                     }
                 }
@@ -344,7 +344,7 @@ impl Component for ReviewComponent {
                 }
                 meta_spans.push(Span::styled(
                     format!("柯林斯 {}", "★".repeat(word.collins as usize)),
-                    Style::default().fg(Color::Magenta),
+                    Theme::text_info(),
                 ));
             }
             if word.oxford {
@@ -353,7 +353,7 @@ impl Component for ReviewComponent {
                 }
                 meta_spans.push(Span::styled(
                     "牛津3000",
-                    Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                    Theme::text_success(),
                 ));
             }
             if !meta_spans.is_empty() {
@@ -380,11 +380,11 @@ impl Component for ReviewComponent {
                     header_lines.push(Line::from(vec![
                         Span::styled(
                             "考试: ",
-                            Style::default().fg(Color::DarkGray),
+                            Theme::text_secondary(),
                         ),
                         Span::styled(
                             tag_display.join(" · "),
-                            Style::default().fg(Color::Cyan),
+                            Theme::text_info(),
                         ),
                     ]));
                 }
@@ -400,7 +400,7 @@ impl Component for ReviewComponent {
                 ReviewState::Question => {
                     let hint = Paragraph::new("Press <Space> to show definition")
                         .alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().fg(Color::Gray));
+                        .style(Theme::text_secondary());
                     frame.render_widget(hint, layout[2]);
                 }
                 ReviewState::Answer => {
@@ -420,9 +420,7 @@ impl Component for ReviewComponent {
                     if let Some(translation) = &word.translation {
                         left_lines.push(Line::from(Span::styled(
                             "━━━ 中文释义 ━━━",
-                            Style::default()
-                                .fg(Color::Cyan)
-                                .add_modifier(Modifier::BOLD),
+                            Theme::text_title(),
                         )));
                         
                         for line in translation.lines() {
@@ -436,9 +434,7 @@ impl Component for ReviewComponent {
                     // English Definition (bottom)
                     left_lines.push(Line::from(Span::styled(
                         "━━━ English Definition ━━━",
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
+                        Theme::text_warning(),
                     )));
                     
                     for line in word.definition.lines() {
@@ -460,11 +456,11 @@ impl Component for ReviewComponent {
                         left_lines.push(Line::from(vec![
                             Span::styled(
                                 "词频: ",
-                                Style::default().fg(Color::DarkGray),
+                                Theme::text_secondary(),
                             ),
                             Span::styled(
                                 freq_info.join(" | "),
-                                Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+                                Theme::text_secondary().add_modifier(Modifier::ITALIC),
                             ),
                         ]));
                     }
@@ -475,16 +471,16 @@ impl Component for ReviewComponent {
                     } else {
                         " 释义 (h/←: 切换) "
                     };
-                    let left_border_style = if self.active_panel == ActivePanel::Definition {
-                        Style::default().fg(Color::Cyan)
+                    let left_block = if self.active_panel == ActivePanel::Definition {
+                        Theme::block_accent().title(left_title)
                     } else {
-                        Style::default()
+                        Theme::block_default().title(left_title)
                     };
                     let left_text = Paragraph::new(left_lines)
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
                         .scroll((self.scroll, 0))
-                        .block(Block::default().borders(Borders::ALL).title(left_title).border_style(left_border_style));
+                        .block(left_block);
                     frame.render_widget(left_text, def_layout[0]);
 
                     // Left scrollbar
@@ -509,9 +505,7 @@ impl Component for ReviewComponent {
                         if !exchange.is_empty() {
                             right_lines.push(Line::from(Span::styled(
                                 "词形变化",
-                                Style::default()
-                                    .fg(Color::Magenta)
-                                    .add_modifier(Modifier::BOLD),
+                                Theme::text_accent(),
                             )));
                             right_lines.push(Line::from(""));
                             
@@ -522,11 +516,11 @@ impl Component for ReviewComponent {
                                 if let Some(value) = exchange_map.get(*key) {
                                     right_lines.push(Line::from(Span::styled(
                                         exchange_type_name(key),
-                                        Style::default().fg(Color::DarkGray),
+                                        Theme::text_secondary(),
                                     )));
                                     right_lines.push(Line::from(Span::styled(
                                         format!("  {}", value),
-                                        Style::default().fg(Color::Cyan).add_modifier(Modifier::ITALIC),
+                                        Theme::text_title().add_modifier(Modifier::ITALIC),
                                     )));
                                     right_lines.push(Line::from(""));
                                 }
@@ -534,13 +528,13 @@ impl Component for ReviewComponent {
                         } else {
                             right_lines.push(Line::from(Span::styled(
                                 "无词形变化",
-                                Style::default().fg(Color::DarkGray),
+                                Theme::text_secondary(),
                             )));
                         }
                     } else {
                         right_lines.push(Line::from(Span::styled(
                             "无词形变化",
-                            Style::default().fg(Color::DarkGray),
+                            Theme::text_secondary(),
                         )));
                     }
 
@@ -548,18 +542,18 @@ impl Component for ReviewComponent {
                     let right_title = if self.active_panel == ActivePanel::Exchange {
                         " 词形变化 (j/k: scroll, h/←: 切换) [FOCUSED] "
                     } else {
-                        " 词形变化 (l/→/Tab: 切换) "
+                        " 词形变化 (l/→: 切换) "
                     };
-                    let right_border_style = if self.active_panel == ActivePanel::Exchange {
-                        Style::default().fg(Color::Magenta)
+                    let right_block = if self.active_panel == ActivePanel::Exchange {
+                        Theme::block_accent().title(right_title)
                     } else {
-                        Style::default()
+                        Theme::block_default().title(right_title)
                     };
                     let right_text = Paragraph::new(right_lines)
                         .wrap(Wrap { trim: true })
                         .alignment(ratatui::layout::Alignment::Left)
                         .scroll((self.exchange_scroll, 0))
-                        .block(Block::default().borders(Borders::ALL).title(right_title).border_style(right_border_style));
+                        .block(right_block);
                     frame.render_widget(right_text, def_layout[1]);
 
                     // Right scrollbar
@@ -581,7 +575,7 @@ impl Component for ReviewComponent {
         } else {
             let msg = Paragraph::new("No words to review!")
                 .alignment(ratatui::layout::Alignment::Center)
-                .block(Block::default().borders(Borders::ALL));
+                .block(Theme::block_with_title(" Review "));
             frame.render_widget(msg, area);
         }
     }

@@ -1,10 +1,10 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::{Color, Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
+    widgets::{Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap},
     Frame,
 };
+use crate::theme::Theme;
 
 /// 通用浮窗组件，支持滚动和关闭
 pub struct Popup {
@@ -41,11 +41,9 @@ impl Popup {
         frame.render_widget(Clear, popup_area);
 
         // 渲染浮窗边框
-        let block = Block::default()
-            .borders(Borders::ALL)
+        let block = Theme::block_accent()
             .title(format!(" {} ", self.title))
-            .title_bottom(" q: 关闭 | j/k: 滚动 ")
-            .border_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+            .title_bottom(" q: 关闭 | j/k: 滚动 ");
 
         let inner_area = block.inner(popup_area);
         frame.render_widget(block, popup_area);

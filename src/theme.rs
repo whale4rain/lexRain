@@ -12,7 +12,7 @@ impl Theme {
     /// 主色调 - 蓝色（用于标题、重点信息）
     pub const PRIMARY: Color = Color::Blue;
     
-    /// 强调色 - 红色/品红（用于重要提示、警告）
+    /// 强调色 - 红色（用于重要提示、焦点）
     pub const ACCENT: Color = Color::Red;
     
     /// 成功色 - 绿色
@@ -20,6 +20,9 @@ impl Theme {
     
     /// 警告色 - 黄色
     pub const WARNING: Color = Color::Yellow;
+    
+    /// 信息色 - 橙色（用于补充信息）
+    pub const INFO: Color = Color::Rgb(255, 165, 0); // Orange
     
     /// 前景色 - 白色（主要文本）
     pub const FOREGROUND: Color = Color::White;
@@ -137,6 +140,11 @@ impl Theme {
     /// 警告文本样式（黄色粗体）
     pub fn text_warning() -> Style {
         Style::default().fg(Self::WARNING).add_modifier(Modifier::BOLD)
+    }
+
+    /// 信息文本样式（橙色粗体）
+    pub fn text_info() -> Style {
+        Style::default().fg(Self::INFO).add_modifier(Modifier::BOLD)
     }
 
     /// 普通文本样式（白色）
