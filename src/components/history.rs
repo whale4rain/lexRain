@@ -278,6 +278,15 @@ impl Component for HistoryComponent {
             // 正常模式的键位处理
             match key.code {
                 KeyCode::Esc | KeyCode::Char('q') => Ok(Action::NavigateTo(Screen::Dashboard)),
+                KeyCode::Char('f') => {
+                    // Toggle favorite for selected word
+                    if let Some((word, _, _)) = self.history_list.get(self.selected_index) {
+                        if let Some(word_id) = word.id {
+                            return Ok(Action::ToggleFavorite(word_id));
+                        }
+                    }
+                    Ok(Action::None)
+                }
                 KeyCode::Enter => {
                     // 打开浮窗显示完整信息
                     self.show_popup = true;

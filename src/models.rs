@@ -15,6 +15,7 @@ pub struct Word {
     pub bnc: Option<i32>,           // BNC corpus frequency rank
     pub frq: Option<i32>,           // Contemporary corpus frequency rank
     pub exchange: Option<String>,    // Word forms (tenses, plural, etc.)
+    pub favorited: bool,             // Favorited flag
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -118,6 +118,16 @@ impl DictionaryComponent {
         })
     }
 
+    pub fn refresh(&mut self) -> Result<()> {
+        // Refresh the word list to update favorited status
+        if self.search_input.value.is_empty() {
+            self.word_list = self.db.get_all_words()?;
+        } else {
+            self.word_list = self.db.search_words(&self.search_input.value)?;
+        }
+        Ok(())
+    }
+
     fn update_search(&mut self) -> Result<()> {
         self.searching = true;
         
@@ -369,6 +379,15 @@ impl DictionaryComponent {
             KeyCode::Tab | KeyCode::Char('i') => {
                 // Enter insert mode
                 self.mode = Mode::Insert;
+                Ok(Action::None)
+            }
+            KeyCode::Char('f') => {
+                // Toggle favorite for selected word
+                if let Some((word, _)) = self.word_list.get(self.selected_index) {
+                    if let Some(word_id) = word.id {
+                        return Ok(Action::ToggleFavorite(word_id));
+                    }
+                }
                 Ok(Action::None)
             }
             KeyCode::Enter => {

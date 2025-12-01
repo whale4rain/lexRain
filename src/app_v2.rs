@@ -2,7 +2,7 @@ use crate::components::*;
 use crate::components::{
     dashboard::DashboardComponent, dictionary::DictionaryComponent, history::HistoryComponent,
     review::ReviewComponent, statistics::StatisticsComponent, wordbook::WordbookComponent,
-    settings::SettingsComponent,
+    favorites::FavoritesComponent, settings::SettingsComponent,
 };
 use crate::db::Database;
 use crate::theme::Theme;
@@ -18,7 +18,9 @@ pub struct AppV2 {
     history: Option<HistoryComponent>,
     statistics: Option<StatisticsComponent>,
     wordbook: Option<WordbookComponent>,
+    favorites: Option<FavoritesComponent>,
     settings: Option<SettingsComponent>,
+    notification: Option<(String, std::time::Instant)>, // (message, timestamp)
 }
 
 impl AppV2 {
@@ -31,7 +33,9 @@ impl AppV2 {
             history: None,
             statistics: None,
             wordbook: None,
+            favorites: None,
             settings: None,
+            notification: None,
         })
     }
 
@@ -80,6 +84,13 @@ impl AppV2 {
                     Action::NavigateTo(Screen::Dashboard)
                 }
             }
+            Screen::Favorites => {
+                if let Some(fav) = &mut self.favorites {
+                    fav.handle_key(key)?
+                } else {
+                    Action::NavigateTo(Screen::Dashboard)
+                }
+            }
             Screen::Settings => {
                 if let Some(settings) = &mut self.settings {
                     settings.handle_key(key)?
@@ -101,6 +112,30 @@ impl AppV2 {
             }
             Action::StartWordbookReview(tag, shuffle) => {
                 self.start_wordbook_review(&tag, shuffle)?;
+                Ok(false)
+            }
+            Action::ToggleFavorite(word_id) => {
+                let db = Database::initialize()?;
+                let is_favorited = db.toggle_favorite(word_id)?;
+                
+                // Show notification
+                let msg = if is_favorited {
+                    "✓ Added to favorites".to_string()
+                } else {
+                    "✗ Removed from favorites".to_string()
+                };
+                self.notification = Some((msg, std::time::Instant::now()));
+                
+                // Refresh favorites component if exists
+                if let Some(fav) = &mut self.favorites {
+                    fav.refresh()?;
+                }
+                
+                // Refresh dictionary component if exists (to update favorited status)
+                if let Some(dict) = &mut self.dictionary {
+                    dict.refresh()?;
+                }
+                
                 Ok(false)
             }
             Action::None => Ok(false),
@@ -148,6 +183,11 @@ impl AppV2 {
                 let db = Database::initialize()?;
                 self.wordbook = Some(WordbookComponent::new(db)?);
                 self.current_screen = Screen::Wordbook;
+            }
+            Screen::Favorites => {
+                let db = Database::initialize()?;
+                self.favorites = Some(FavoritesComponent::new(db)?);
+                self.current_screen = Screen::Favorites;
             }
             Screen::Settings => {
                 let db = Database::initialize()?;
@@ -200,6 +240,11 @@ impl AppV2 {
                     wb.view(frame, content_area);
                 }
             }
+            Screen::Favorites => {
+                if let Some(fav) = &mut self.favorites {
+                    fav.view(frame, content_area);
+                }
+            }
             Screen::Settings => {
                 if let Some(settings) = &mut self.settings {
                     settings.view(frame, content_area);
@@ -209,6 +254,15 @@ impl AppV2 {
 
         // Render footer
         self.render_footer(frame, area);
+        
+        // Render notification if present and not expired (3 seconds)
+        if let Some((msg, timestamp)) = &self.notification {
+            if timestamp.elapsed() < std::time::Duration::from_secs(3) {
+                self.render_notification(frame, area, msg);
+            } else {
+                self.notification = None;
+            }
+        }
     }
 
     fn render_header(&self, frame: &mut Frame, area: Rect) {
@@ -224,6 +278,7 @@ impl AppV2 {
             "History",
             "Statistics",
             "Wordbook",
+            "Favorites",
             "Settings",
             "Quit",
         ];
@@ -242,7 +297,8 @@ impl AppV2 {
                 Screen::History => 3,
                 Screen::Statistics => 4,
                 Screen::Wordbook => 5,
-                Screen::Settings => 6,
+                Screen::Favorites => 6,
+                Screen::Settings => 7,
             })
             .highlight_style(
                 Style::default()
@@ -275,6 +331,7 @@ impl AppV2 {
             Screen::Dashboard => StatusBar::new()
                 .add_item("r", "Review")
                 .add_item("w", "Wordbook")
+                .add_item("f", "Favorites")
                 .add_item("d", "Dictionary")
                 .add_item("h", "History")
                 .add_item("s", "Statistics")
@@ -286,20 +343,28 @@ impl AppV2 {
                 .add_item("2", "Difficult")
                 .add_item("3", "Good")
                 .add_item("4", "Easy")
+                .add_item("f", "Favorite")
                 .add_item("q/Esc", "Back"),
             Screen::Dictionary => StatusBar::new()
                 .add_item("Type", "Search")
                 .add_item("↑/↓/j/k", "Navigate")
+                .add_item("f", "Favorite")
                 .add_item("g/G", "First/Last")
                 .add_item("PgUp/PgDn", "Page")
                 .add_item("q/Esc", "Back"),
-            Screen::History => StatusBar::new().add_item("q/Esc", "Back"),
+            Screen::History => StatusBar::new()
+                .add_item("f", "Favorite")
+                .add_item("q/Esc", "Back"),
             Screen::Statistics => StatusBar::new().add_item("q/Esc", "Back"),
             Screen::Wordbook => StatusBar::new()
                 .add_item("Enter", "Start Review")
                 .add_item("s", "Toggle Shuffle")
                 .add_item("↑/↓", "Select")
                 .add_item("q", "Back"),
+            Screen::Favorites => StatusBar::new()
+                .add_item("↑/↓/j/k", "Navigate")
+                .add_item("f/u", "Unfavorite")
+                .add_item("q/Esc", "Back"),
             Screen::Settings => StatusBar::new()
                 .add_item("e", "Edit")
                 .add_item("Enter", "Save")
@@ -321,5 +386,34 @@ impl AppV2 {
         self.review = Some(review);
         self.current_screen = Screen::Review;
         Ok(())
+    }
+    
+    fn render_notification(&self, frame: &mut Frame, area: Rect, message: &str) {
+        use ratatui::{
+            layout::Alignment,
+            widgets::{Block, BorderType, Borders, Paragraph},
+        };
+        
+        let width = message.len().min(60) as u16 + 4;
+        let height = 3;
+        
+        let notification_area = Rect {
+            x: (area.width.saturating_sub(width)) / 2,
+            y: area.y + 5,
+            width,
+            height,
+        };
+        
+        let notification = Paragraph::new(message)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Theme::text_success())
+            )
+            .alignment(Alignment::Center)
+            .style(Theme::text_success());
+        
+        frame.render_widget(notification, notification_area);
     }
 }

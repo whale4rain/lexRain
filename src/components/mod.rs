@@ -4,6 +4,7 @@ pub mod dictionary;
 pub mod history;
 pub mod statistics;
 pub mod wordbook;
+pub mod favorites;
 pub mod settings;
 pub mod common;
 
@@ -16,6 +17,7 @@ use ratatui::{layout::Rect, Frame};
 pub enum Action {
     NavigateTo(Screen),
     StartWordbookReview(String, bool), // (tag, shuffle)
+    ToggleFavorite(i64), // word_id
     Quit,
     None,
 }
@@ -28,6 +30,7 @@ pub enum Screen {
     History,
     Statistics,
     Wordbook,
+    Favorites,
     Settings,
 }
 

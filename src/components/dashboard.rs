@@ -56,6 +56,10 @@ impl Component for DashboardComponent {
                 self.show_completion_message = false;
                 Ok(Action::NavigateTo(Screen::Wordbook))
             }
+            KeyCode::Char('f') => {
+                self.show_completion_message = false;
+                Ok(Action::NavigateTo(Screen::Favorites))
+            }
             KeyCode::Char('d') => {
                 self.show_completion_message = false;
                 Ok(Action::NavigateTo(Screen::Dictionary))
@@ -188,21 +192,21 @@ impl Component for DashboardComponent {
                 Line::from(vec![
                     Span::raw("    "),
                     Span::styled(" r ", Theme::text_normal().bg(Theme::PRIMARY)),
-                    Span::raw(" Review    "),
+                    Span::raw(" Review   "),
                     Span::styled(" w ", Theme::text_normal().bg(Theme::SUCCESS)),
-                    Span::raw(" Wordbook    "),
+                    Span::raw(" Wordbook   "),
                     Span::styled(" d ", Theme::text_normal().bg(Theme::WARNING)),
                     Span::raw(" Dictionary  "),
                 ]),
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("    "),
+                    Span::styled(" f ", Theme::text_normal().bg(Color::Rgb(255, 200, 50))),
+                    Span::raw(" Favorites "),
                     Span::styled(" h ", Theme::text_normal().bg(Theme::INFO)),
-                    Span::raw(" History   "),
+                    Span::raw(" History    "),
                     Span::styled(" s ", Theme::text_normal().bg(Theme::ACCENT)),
                     Span::raw(" Statistics  "),
-                    Span::styled(" c ", Theme::text_normal().bg(Theme::PRIMARY)),
-                    Span::raw(" Settings    "),
                 ]),
             ];
             let completion_msg = Paragraph::new(completion_lines)
@@ -215,21 +219,21 @@ impl Component for DashboardComponent {
                 Line::from(vec![
                     Span::raw("    "),
                     Span::styled(" r ", Theme::text_normal().bg(Theme::PRIMARY)),
-                    Span::raw(" Review    "),
+                    Span::raw(" Review   "),
                     Span::styled(" w ", Theme::text_normal().bg(Theme::SUCCESS)),
-                    Span::raw(" Wordbook    "),
+                    Span::raw(" Wordbook   "),
                     Span::styled(" d ", Theme::text_normal().bg(Theme::WARNING)),
                     Span::raw(" Dictionary  "),
                 ]),
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("    "),
+                    Span::styled(" f ", Theme::text_normal().bg(Color::Rgb(255, 200, 50))),
+                    Span::raw(" Favorites "),
                     Span::styled(" h ", Theme::text_normal().bg(Theme::INFO)),
-                    Span::raw(" History   "),
+                    Span::raw(" History    "),
                     Span::styled(" s ", Theme::text_normal().bg(Theme::ACCENT)),
                     Span::raw(" Statistics  "),
-                    Span::styled(" c ", Theme::text_normal().bg(Theme::PRIMARY)),
-                    Span::raw(" Settings    "),
                 ]),
             ])
             .block(Theme::block_with_title(" ⌨️  Quick Actions "))

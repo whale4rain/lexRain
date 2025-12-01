@@ -193,6 +193,14 @@ impl Component for ReviewComponent {
             },
             ReviewState::Answer => match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => Ok(Action::NavigateTo(Screen::Dashboard)),
+                KeyCode::Char('f') => {
+                    if let Some((word, _)) = &self.current_item {
+                        if let Some(word_id) = word.id {
+                            return Ok(Action::ToggleFavorite(word_id));
+                        }
+                    }
+                    Ok(Action::None)
+                }
                 KeyCode::Char('j') | KeyCode::Down => {
                     match self.active_panel {
                         ActivePanel::Definition => self.scroll = self.scroll.saturating_add(1),

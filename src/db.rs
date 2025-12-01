@@ -62,6 +62,15 @@ impl Database {
             [],
         )?;
 
+        // Create favorites table
+        learn_conn.execute(
+            "CREATE TABLE IF NOT EXISTS favorites (
+                word_id INTEGER PRIMARY KEY,
+                added_at TEXT NOT NULL
+            )",
+            [],
+        )?;
+
         // Initialize default settings if not exists
         learn_conn.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES ('daily_goal', '20')",
@@ -89,6 +98,8 @@ impl Database {
 
     // Get word by ID from ECDICT
     fn get_word_by_id(&self, id: i64) -> Result<Word> {
+        let is_favorited = self.is_favorited(id).unwrap_or(false);
+        
         Ok(self.dict_conn.query_row(
             "SELECT id, word, phonetic, definition, translation, pos, collins, oxford, tag, bnc, frq, exchange
              FROM stardict WHERE id = ?1",
@@ -107,6 +118,7 @@ impl Database {
                     bnc: row.get(9)?,
                     frq: row.get(10)?,
                     exchange: row.get(11)?,
+                    favorited: is_favorited,
                 })
             },
         )?)
@@ -263,6 +275,7 @@ impl Database {
                 bnc: row.get(9)?,
                 frq: row.get(10)?,
                 exchange: row.get(11)?,
+                favorited: false, // Will be checked later for each word
             })
         })?;
 
@@ -502,6 +515,7 @@ impl Database {
                 bnc: row.get(9)?,
                 frq: row.get(10)?,
                 exchange: row.get(11)?,
+                favorited: false,
             })
         })?;
 
@@ -652,6 +666,7 @@ impl Database {
                 bnc: row.get(9)?,
                 frq: row.get(10)?,
                 exchange: row.get(11)?,
+                favorited: false,
             })
         })?;
 
@@ -734,5 +749,62 @@ impl Database {
         .collect::<Result<Vec<_>, _>>()?;
 
         Ok(dates)
+    }
+
+    // Favorites methods
+    pub fn toggle_favorite(&self, word_id: i64) -> Result<bool> {
+        let is_fav = self.is_favorited(word_id)?;
+        
+        if is_fav {
+            self.learn_conn.execute(
+                "DELETE FROM favorites WHERE word_id = ?1",
+                params![word_id],
+            )?;
+            Ok(false)
+        } else {
+            let now = Utc::now().to_rfc3339();
+            self.learn_conn.execute(
+                "INSERT INTO favorites (word_id, added_at) VALUES (?1, ?2)",
+                params![word_id, now],
+            )?;
+            Ok(true)
+        }
+    }
+
+    pub fn is_favorited(&self, word_id: i64) -> Result<bool> {
+        let count: i64 = self.learn_conn.query_row(
+            "SELECT COUNT(*) FROM favorites WHERE word_id = ?1",
+            params![word_id],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    pub fn get_favorites(&self) -> Result<Vec<Word>> {
+        let mut stmt = self.learn_conn.prepare(
+            "SELECT word_id FROM favorites ORDER BY added_at DESC"
+        )?;
+
+        let word_ids = stmt.query_map([], |row| {
+            row.get::<_, i64>(0)
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+        let mut words = Vec::new();
+        for id in word_ids {
+            if let Ok(word) = self.get_word_by_id(id) {
+                words.push(word);
+            }
+        }
+        Ok(words)
+    }
+
+    pub fn get_favorites_count(&self) -> Result<i64> {
+        let count: i64 = self.learn_conn.query_row(
+            "SELECT COUNT(*) FROM favorites",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count)
     }
 }
